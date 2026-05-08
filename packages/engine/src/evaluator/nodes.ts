@@ -78,6 +78,8 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
     case 'ClassDeclaration':
     case 'ClassExpression':
       return yield* evalClass(node as A.Class, ctx);
+    case 'Super':
+      return evalSuperReceiver(ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -425,12 +427,43 @@ function* evalCall(
   node: A.CallExpression,
   ctx: Context,
 ): Generator<StepEvent, JSValue> {
+  // Special-case super() — parent constructor invocation.
+  if (node.callee.type === 'Super') {
+    const top = ctx.stack.top();
+    if (!top) throw new Error('Internal: super() outside any frame');
+    if (top.fn === 'global') throw new Error('SyntaxError: super() outside class constructor');
+    const fnObj0 = ctx.heap.get(top.fn.id);
+    const home = fnObj0?.source?.homeObject;
+    if (!home) throw new Error('SyntaxError: super() requires home object');
+    const homeObj = ctx.heap.get(home.id);
+    const parentProto = homeObj?.prototype;
+    if (!parentProto || parentProto.kind !== 'ref') {
+      throw new Error('TypeError: cannot resolve super constructor — no parent prototype');
+    }
+    const parentProtoObj = ctx.heap.get(parentProto.id);
+    const parentCtorVal = parentProtoObj?.ownProps.get('constructor');
+    if (!parentCtorVal || parentCtorVal.kind !== 'ref') {
+      throw new Error('TypeError: cannot resolve super constructor');
+    }
+    const parentObj = ctx.heap.get(parentCtorVal.id);
+    if (!parentObj) throw new Error('Internal: parent constructor missing');
+    const argsSuper: JSValue[] = [];
+    for (const a of node.arguments) argsSuper.push(yield* evalNode(a as A.Node, ctx));
+    return yield* invokeFunction(parentObj, parentCtorVal, top.thisValue, argsSuper, node, ctx);
+  }
+
   // Determine `this` based on callee shape.
   let thisValue: JSValue = { kind: 'undefined' };
   let callee: JSValue;
   if (node.callee.type === 'MemberExpression') {
     const recv = yield* evalNode(node.callee.object as A.Node, ctx);
-    if (recv.kind === 'ref') thisValue = recv;
+    // For super.method(), `this` stays as the current frame's thisValue.
+    if (node.callee.object.type === 'Super') {
+      const top = ctx.stack.top();
+      thisValue = top ? top.thisValue : { kind: 'undefined' };
+    } else if (recv.kind === 'ref') {
+      thisValue = recv;
+    }
     callee = yield* evalNodeMemberAsCallee(node.callee as A.MemberExpression, recv, ctx);
   } else {
     callee = yield* evalNode(node.callee as A.Node, ctx);
@@ -813,6 +846,16 @@ function* evalClass(node: A.Class, ctx: Context): Generator<StepEvent, JSValue> 
     if (fnObj && fnObj.source) fnObj.source.name = node.id.name;
   }
 
+  // Constructor's homeObject is the class's prototype, so super() inside
+  // resolves the parent constructor via homeObject.[[Prototype]].constructor.
+  const constructorObj = ctx.heap.get(classRef.id);
+  if (constructorObj && constructorObj.source) {
+    const protoForCtor = constructorObj.ownProps.get('prototype');
+    if (protoForCtor && protoForCtor.kind === 'ref') {
+      constructorObj.source.homeObject = protoForCtor;
+    }
+  }
+
   // extends: chain B.prototype.[[Prototype]] = A.prototype, B.[[Prototype]] = A.
   if (node.superClass) {
     const parent = yield* evalNode(node.superClass as A.Node, ctx);
@@ -845,11 +888,12 @@ function* evalClass(node: A.Class, ctx: Context): Generator<StepEvent, JSValue> 
   for (const m of instanceMethods) {
     const methodRef = makeFunctionRef(m.value as A.FunctionExpression, ctx, false);
     const methodObj = ctx.heap.get(methodRef.id);
-    if (methodObj && methodObj.source && m.key.type === 'Identifier') {
-      methodObj.source.name = (m.key as A.Identifier).name;
+    if (methodObj && methodObj.source) {
+      if (m.key.type === 'Identifier') methodObj.source.name = m.key.name;
+      methodObj.source.homeObject = protoVal as Reference;
     }
     if (m.key.type === 'Identifier') {
-      ctx.heap.setProp(protoVal.id, (m.key as A.Identifier).name, methodRef);
+      ctx.heap.setProp(protoVal.id, m.key.name, methodRef);
     }
   }
 
@@ -857,11 +901,12 @@ function* evalClass(node: A.Class, ctx: Context): Generator<StepEvent, JSValue> 
   for (const m of staticMethods) {
     const methodRef = makeFunctionRef(m.value as A.FunctionExpression, ctx, false);
     const methodObj = ctx.heap.get(methodRef.id);
-    if (methodObj && methodObj.source && m.key.type === 'Identifier') {
-      methodObj.source.name = (m.key as A.Identifier).name;
+    if (methodObj && methodObj.source) {
+      if (m.key.type === 'Identifier') methodObj.source.name = m.key.name;
+      methodObj.source.homeObject = classRef;
     }
     if (m.key.type === 'Identifier') {
-      ctx.heap.setProp(classRef.id, (m.key as A.Identifier).name, methodRef);
+      ctx.heap.setProp(classRef.id, m.key.name, methodRef);
     }
   }
 
@@ -877,4 +922,16 @@ function* evalClass(node: A.Class, ctx: Context): Generator<StepEvent, JSValue> 
     payload: { kind: 'function', name: node.id?.name, classDecl: true },
   };
   return classRef;
+}
+
+function evalSuperReceiver(ctx: Context): JSValue {
+  const top = ctx.stack.top();
+  if (!top) throw new Error('Internal: super outside any frame');
+  if (top.fn === 'global') throw new Error('SyntaxError: super outside method');
+  const fnObj = ctx.heap.get(top.fn.id);
+  const home = fnObj?.source?.homeObject;
+  if (!home) throw new Error('SyntaxError: super requires a home object');
+  const homeObj = ctx.heap.get(home.id);
+  if (!homeObj) throw new Error('Internal: home object missing');
+  return homeObj.prototype ?? { kind: 'undefined' };
 }

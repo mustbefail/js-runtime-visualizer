@@ -26,6 +26,7 @@ export type FunctionSource = {
   params: string[];
   body: AstNode;
   isArrow: boolean;
+  homeObject?: Reference;
 };
 
 export type NativeCtx = {

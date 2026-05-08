@@ -46,4 +46,23 @@ describe('evaluator — class declarations', () => {
     `);
     expect(finalValue).toEqual({ kind: 'string', value: 'a' });
   });
+  it('super(...) calls parent constructor with current this', () => {
+    const { finalValue } = runCode(`
+      class A { constructor(x) { this.x = x; } }
+      class B extends A {
+        constructor(x, y) { super(x); this.y = y; }
+      }
+      const b = new B(1, 2);
+      b.x + b.y;
+    `);
+    expect(finalValue).toEqual({ kind: 'number', value: 3 });
+  });
+  it('super.method() walks the parent prototype', () => {
+    const { finalValue } = runCode(`
+      class A { greet() { return 'a'; } }
+      class B extends A { greet() { return super.greet() + 'b'; } }
+      new B().greet();
+    `);
+    expect(finalValue).toEqual({ kind: 'string', value: 'ab' });
+  });
 });
