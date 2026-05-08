@@ -41,9 +41,10 @@ export type NodeKind = 'frame' | 'heap';
 // property of a heap object, to a heap object id.
 export type RefEdge = {
   fromKind: NodeKind;
-  fromId: string; // frame index as string (e.g. "frame-0") or heap id (e.g. "obj7")
-  fromLabel: string; // the binding name or property key, used for tooltips
-  toId: string; // heap id
+  fromId: string;     // synthetic frame key or heap id
+  fromLabel: string;  // binding name, property key, or "[[Prototype]]"
+  toId: string;
+  edgeKind: 'ref' | 'proto'; // ref = solid teal, proto = solid violet
 };
 
 // Persistent storage of node positions. Frame ids use synthetic key "frame-{index}".

@@ -52,6 +52,7 @@ describe('extractRefEdges', () => {
       fromId: frameKey(0),
       fromLabel: 'obj',
       toId: 'obj7',
+      edgeKind: 'ref',
     });
   });
 
@@ -69,6 +70,7 @@ describe('extractRefEdges', () => {
       fromId: 'obj1',
       fromLabel: 'child',
       toId: 'obj2',
+      edgeKind: 'ref',
     });
   });
 
@@ -77,5 +79,25 @@ describe('extractRefEdges', () => {
       frameBindings: [new Map([['x', { kind: 'number', value: 1 }]])],
     });
     expect(extractRefEdges(snap)).toEqual([]);
+  });
+
+  it('emits a proto edge for each heap object with a [[Prototype]]', () => {
+    const snap = snapWith({
+      heap: [
+        ['obj1', new Map()],
+        ['obj2', new Map()],
+      ],
+    });
+    snap.heap.get('obj1')!.prototype = { kind: 'ref', id: 'obj2' } as never;
+    const edges = extractRefEdges(snap);
+    const protoEdges = edges.filter((e) => e.edgeKind === 'proto');
+    expect(protoEdges).toHaveLength(1);
+    expect(protoEdges[0]).toEqual({
+      fromKind: 'heap',
+      fromId: 'obj1',
+      fromLabel: '[[Prototype]]',
+      toId: 'obj2',
+      edgeKind: 'proto',
+    });
   });
 });
