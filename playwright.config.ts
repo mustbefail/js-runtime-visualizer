@@ -7,7 +7,7 @@ export default defineConfig({
   webServer: {
     command: 'npm --workspace @js-runtime-visualizer/ui run dev',
     url: 'http://localhost:5173',
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
   use: {

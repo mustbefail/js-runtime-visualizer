@@ -60,7 +60,7 @@ export function FrameNode(props: {
     headerHeight + (isCollapsed ? 0 : padding + bindings.length * lineHeight + padding);
 
   return (
-    <g transform={`translate(${renderPos.x}, ${renderPos.y})`}>
+    <g data-testid="frame-node" data-frame-id={id} transform={`translate(${renderPos.x}, ${renderPos.y})`}>
       <rect
         width={FRAME_W}
         height={height}
@@ -70,6 +70,7 @@ export function FrameNode(props: {
         strokeWidth={isTop ? 2 : 1}
       />
       <rect
+        data-testid="frame-header"
         width={FRAME_W}
         height={headerHeight}
         rx={6}
