@@ -44,7 +44,10 @@ describe('canvas atoms — transient pan/zoom + drag', () => {
 describe('persisted canvas atoms', () => {
   it('nodePositionsAtom round-trips a Map via localStorage', async () => {
     const { nodePositionsAtom } = await import('../../src/atoms/session');
-    const positions = new Map([['frame-0', { x: 50, y: 50 }], ['obj1', { x: 200, y: 50 }]]);
+    const positions = new Map([
+      ['frame-0', { x: 50, y: 50 }],
+      ['obj1', { x: 200, y: 50 }],
+    ]);
     nodePositionsAtom.set(positions);
     expect(nodePositionsAtom().get('frame-0')).toEqual({ x: 50, y: 50 });
     expect(fakeStorage.getItem('jsrv:nodePositions')).toBeTruthy();

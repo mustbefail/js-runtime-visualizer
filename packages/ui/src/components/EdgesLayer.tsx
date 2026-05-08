@@ -20,11 +20,7 @@ function leftAnchor(pos: Pos): Pos {
   return { x: pos.x, y: pos.y + NODE_HEADER_H + 6 };
 }
 
-function getPos(
-  id: string,
-  positions: NodePositions,
-  drag: DragState,
-): Pos | null {
+function getPos(id: string, positions: NodePositions, drag: DragState): Pos | null {
   if (drag.active && drag.id === id) return drag.pos;
   return positions.get(id) ?? null;
 }

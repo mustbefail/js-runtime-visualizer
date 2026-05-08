@@ -46,10 +46,7 @@ export function usePanZoom() {
       const delta = -e.deltaY * 0.001;
       frame.run(() =>
         panZoomAtom.set((prev) => {
-          const nextScale = Math.min(
-            SCALE_MAX,
-            Math.max(SCALE_MIN, prev.scale * (1 + delta)),
-          );
+          const nextScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, prev.scale * (1 + delta)));
           // Anchor the zoom at the cursor.
           const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
           const mx = e.clientX - rect.left;

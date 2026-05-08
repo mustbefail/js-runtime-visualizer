@@ -43,15 +43,18 @@ export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos }) {
   };
 
   const labelColor =
-    obj.kind === 'function' ? 'var(--info)' :
-    obj.kind === 'array' ? 'var(--accent)' :
-    'var(--good)';
+    obj.kind === 'function'
+      ? 'var(--info)'
+      : obj.kind === 'array'
+        ? 'var(--accent)'
+        : 'var(--good)';
 
   const headerHeight = 22;
   const lineHeight = 16;
   const padding = 6;
   const props_ = isCollapsed ? [] : Array.from(obj.ownProps.entries());
-  const height = headerHeight + (isCollapsed ? 0 : padding + Math.max(1, props_.length) * lineHeight + padding);
+  const height =
+    headerHeight + (isCollapsed ? 0 : padding + Math.max(1, props_.length) * lineHeight + padding);
 
   return (
     <g transform={`translate(${renderPos.x}, ${renderPos.y})`}>

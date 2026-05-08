@@ -41,9 +41,9 @@ export type NodeKind = 'frame' | 'heap';
 // property of a heap object, to a heap object id.
 export type RefEdge = {
   fromKind: NodeKind;
-  fromId: string;     // frame index as string (e.g. "frame-0") or heap id (e.g. "obj7")
-  fromLabel: string;  // the binding name or property key, used for tooltips
-  toId: string;       // heap id
+  fromId: string; // frame index as string (e.g. "frame-0") or heap id (e.g. "obj7")
+  fromLabel: string; // the binding name or property key, used for tooltips
+  toId: string; // heap id
 };
 
 // Persistent storage of node positions. Frame ids use synthetic key "frame-{index}".
@@ -53,6 +53,4 @@ export type NodePositions = Map<string, Pos>;
 export type PanZoom = { panX: number; panY: number; scale: number };
 
 // Drag transient state — null when no node is being dragged.
-export type DragState =
-  | { active: false }
-  | { active: true; id: string; pos: Pos };
+export type DragState = { active: false } | { active: true; id: string; pos: Pos };

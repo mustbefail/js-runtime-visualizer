@@ -26,14 +26,12 @@ const fakeStorage = (() => {
 })();
 vi.stubGlobal('localStorage', fakeStorage);
 
-beforeEach(async () => {
-  // Reset Reatom global context between tests so atom state doesn't leak.
-  const { context } = await import('@reatom/core');
-  context.reset();
+beforeEach(() => {
+  vi.resetModules();
+  fakeStorage.clear();
 });
 
 afterEach(() => {
-  fakeStorage.clear();
   vi.restoreAllMocks();
 });
 

@@ -9,7 +9,10 @@ import { screenDeltaToCanvas } from './coords';
 // captures starting mouse + position, then attaches window-level listeners
 // for move and up. During move, dragStateAtom is updated. On up, the final
 // position is written to nodePositionsAtom.
-export function useDrag(id: string, currentPos: Pos): {
+export function useDrag(
+  id: string,
+  currentPos: Pos,
+): {
   onMouseDown: (e: React.MouseEvent) => void;
 } {
   const [pz] = useAtom(panZoomAtom);

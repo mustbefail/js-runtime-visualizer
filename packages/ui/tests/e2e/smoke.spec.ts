@@ -70,7 +70,10 @@ test('drag a frame → reload → position persisted', async ({ page }) => {
   await page.waitForSelector('.cm-content', { timeout: 15_000 });
   await page.getByRole('button', { name: 'Run' }).click();
 
-  const reloadBox = await page.locator('[data-testid="frame-node"][data-frame-id="frame-0"]').locator('[data-testid="frame-header"]').boundingBox();
+  const reloadBox = await page
+    .locator('[data-testid="frame-node"][data-frame-id="frame-0"]')
+    .locator('[data-testid="frame-header"]')
+    .boundingBox();
   if (!reloadBox) throw new Error('Could not measure reloaded frame position');
 
   // Allow up to 15px tolerance for sub-pixel rendering / measurement variance.

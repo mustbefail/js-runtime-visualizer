@@ -1,8 +1,6 @@
 import { lazy, Suspense } from 'react';
 
-const EditorPane = lazy(() =>
-  import('./EditorPane').then((m) => ({ default: m.EditorPane })),
-);
+const EditorPane = lazy(() => import('./EditorPane').then((m) => ({ default: m.EditorPane })));
 
 export function EditorPaneLazy() {
   return (

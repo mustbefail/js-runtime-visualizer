@@ -28,7 +28,10 @@ export const scrubberSpeedAtom = atom(1, 'scrubberSpeedAtom').extend(
 
 // Node positions on the canvas. Keyed by "frame-{index}" for stack frames or
 // heap object id (e.g. "obj7"). Persisted so reload restores the last layout.
-export const nodePositionsAtom = atom<NodePositions>(new Map<string, Pos>(), 'nodePositionsAtom').extend(
+export const nodePositionsAtom = atom<NodePositions>(
+  new Map<string, Pos>(),
+  'nodePositionsAtom',
+).extend(
   withLocalStorage({
     key: persistKey('nodePositions'),
     version: STORAGE_VERSION,

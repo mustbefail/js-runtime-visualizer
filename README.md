@@ -65,7 +65,7 @@ console.log(snapshots.length); // each step recorded as an immutable snapshot
 
 - [x] **Plan 1** — headless engine: parser, runtime model, evaluator (literals → control flow → functions → closures → objects), `console.log`, snapshot store, drill-in stepping. _Completed 2026-05-08._
 - [x] **Plan 2** — UI shell: Vite + React + Reatom + CodeMirror, Run button, textual snapshot view, time-travel scrubber, session persisted in `localStorage`. Engine snapshots now share `HeapObject` references across steps. _Completed 2026-05-08._
-- [ ] **Plan 3** — canvas visualisation: pan/zoom SVG canvas, draggable frames + heap nodes, edges, collapse.
+- [x] **Plan 3** — canvas visualisation: pan/zoom SVG canvas, draggable frames + heap nodes, reference edges, collapse, position persistence. _Completed 2026-05-08._
 - [ ] **Plan 4** — prototypes & inheritance: `Object.create`, `__proto__`, `class`/`extends`, `new`, this binding, prototype-chain lookup highlights, prototype pollution mode.
 - [ ] **Plan 5** — errors & traceback: `throw`/`try`/`catch`, unwind events, animated error propagation on the canvas.
 
