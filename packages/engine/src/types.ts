@@ -27,6 +27,7 @@ export type FunctionSource = {
   body: AstNode;
   isArrow: boolean;
   homeObject?: Reference;
+  capturedBindings?: Map<string, JSValue>;
 };
 
 export type NativeCtx = {

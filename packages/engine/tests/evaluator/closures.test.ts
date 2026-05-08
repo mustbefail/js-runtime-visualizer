@@ -26,4 +26,19 @@ describe('evaluator — closures', () => {
     `);
     expect(finalValue).toEqual({ kind: 'number', value: 1 });
   });
+
+  it('function HeapObject snapshots its capturedBindings at allocation time', () => {
+    const { snapshots } = runCode(`
+      let n = 0;
+      const f = function () { return n; };
+      n = 999;
+    `);
+    const last = snapshots[snapshots.length - 1]!;
+    const fnEntry = Array.from(last.heap.values()).find(
+      (o) => o.kind === 'function' && o.source && !o.native,
+    );
+    expect(fnEntry).toBeDefined();
+    const captured = fnEntry?.source?.capturedBindings;
+    expect(captured?.get('n')).toEqual({ kind: 'number', value: 0 });
+  });
 });

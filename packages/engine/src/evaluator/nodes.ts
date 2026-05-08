@@ -385,6 +385,7 @@ function makeFunctionRef(
       params,
       body: node.body as A.Node,
       isArrow,
+      capturedBindings: snapshotCapturedBindings(closureEnv),
     },
   });
   // Auto-allocate Foo.prototype = { constructor: Foo }, [[Prototype]] = objectProto.
@@ -934,4 +935,16 @@ function evalSuperReceiver(ctx: Context): JSValue {
   const homeObj = ctx.heap.get(home.id);
   if (!homeObj) throw new Error('Internal: home object missing');
   return homeObj.prototype ?? { kind: 'undefined' };
+}
+
+function snapshotCapturedBindings(env: IEnvironmentRecord): Map<string, JSValue> {
+  const out = new Map<string, JSValue>();
+  let cur: IEnvironmentRecord | null = env;
+  while (cur) {
+    for (const [k, v] of cur.snapshotBindings()) {
+      if (!out.has(k)) out.set(k, v);
+    }
+    cur = cur.outer;
+  }
+  return out;
 }
