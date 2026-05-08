@@ -2,6 +2,7 @@ import { action } from '@reatom/core';
 import { runCode } from '@js-runtime-visualizer/engine';
 import { codeAtom, drillInAtom } from './session';
 import { snapshotsAtom, finalValueAtom, runErrorAtom } from './engine';
+import { currentStepIndexAtom } from './ui';
 
 export const runAction = action(() => {
   const code = codeAtom();
@@ -11,10 +12,12 @@ export const runAction = action(() => {
     snapshotsAtom.set(snapshots);
     finalValueAtom.set(finalValue);
     runErrorAtom.set(null);
+    currentStepIndexAtom.set(Math.max(0, snapshots.length - 1));
   } catch (e) {
     runErrorAtom.set(e instanceof Error ? e.message : String(e));
     snapshotsAtom.set([]);
     finalValueAtom.set(null);
+    currentStepIndexAtom.set(0);
   }
 }, 'runAction');
 
@@ -22,4 +25,5 @@ export const resetAction = action(() => {
   snapshotsAtom.set([]);
   finalValueAtom.set(null);
   runErrorAtom.set(null);
+  currentStepIndexAtom.set(0);
 }, 'resetAction');
