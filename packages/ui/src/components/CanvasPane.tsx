@@ -143,7 +143,7 @@ export function CanvasPane() {
               {visibleHeap.map(([id, obj]) => {
                 const pos = laidOut.get(id);
                 if (!pos) return null;
-                return <HeapNode key={id} id={id} obj={obj} pos={pos} />;
+                return <HeapNode key={id} id={id} obj={obj} pos={pos} heap={snap.heap} />;
               })}
             </>
           )}

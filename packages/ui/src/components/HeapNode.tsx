@@ -22,8 +22,8 @@ function renderValue(v: JSValue): string {
   }
 }
 
-export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos }) {
-  const { id, obj, pos } = props;
+export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos; heap: Map<string, HeapObject> }) {
+  const { id, obj, pos, heap } = props;
   const [collapsed] = useAtom(collapsedIdsAtom);
   const [drag] = useAtom(dragStateAtom);
   const reatomFrame = useFrame();
@@ -48,6 +48,29 @@ export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos }) {
       : obj.kind === 'array'
         ? 'var(--accent)'
         : 'var(--good)';
+
+  // Compute a friendly primary label.
+  let primaryLabel: string;
+  if (obj.kind === 'function') {
+    const name = obj.source?.name;
+    primaryLabel = name ? `ƒ ${name}` : 'ƒ <anon>';
+  } else if (obj.kind === 'array') {
+    primaryLabel = 'array';
+  } else {
+    // Plain object — try to detect Foo.prototype via the constructor own-prop.
+    const ctor = obj.ownProps.get('constructor');
+    if (ctor && ctor.kind === 'ref') {
+      const ctorObj = heap.get(ctor.id);
+      const ctorName = ctorObj?.source?.name;
+      if (ctorName) {
+        primaryLabel = `${ctorName}.prototype`;
+      } else {
+        primaryLabel = 'object';
+      }
+    } else {
+      primaryLabel = 'object';
+    }
+  }
 
   const headerHeight = 22;
   const lineHeight = 16;
@@ -93,8 +116,8 @@ export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos }) {
         fill={labelColor}
         style={{ userSelect: 'none', pointerEvents: 'none' }}
       >
-        {obj.kind} #{id}
-        {obj.source?.name ? `  ƒ ${obj.source.name}` : ''}
+        {primaryLabel}
+        <tspan fill="var(--muted)" fontSize={9}> #{id}</tspan>
       </text>
       <text
         x={NODE_W - 8}

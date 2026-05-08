@@ -55,3 +55,11 @@ export const collapsedIdsAtom = atom<Set<string>>(new Set<string>(), 'collapsedI
     },
   }),
 );
+
+// Editor pane width as a percentage of the grid (10..80). Persisted across reloads.
+export const editorWidthAtom = atom(50, 'editorWidthAtom').extend(
+  withLocalStorage({
+    key: persistKey('editorWidth'),
+    version: STORAGE_VERSION,
+  }),
+);

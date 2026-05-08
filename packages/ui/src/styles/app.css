@@ -27,12 +27,12 @@ body {
 .app {
   display: grid;
   grid-template-rows: 44px 1fr 220px 36px;
-  grid-template-columns: 50% 50%;
+  grid-template-columns: var(--editor-width, 50%) 6px 1fr;
   grid-template-areas:
-    'toolbar  toolbar'
-    'editor   snapshot'
-    'console  snapshot'
-    'scrubber scrubber';
+    'toolbar  toolbar  toolbar'
+    'editor   splitter snapshot'
+    'console  splitter snapshot'
+    'scrubber scrubber scrubber';
   height: 100vh;
 }
 
@@ -42,8 +42,17 @@ body {
 }
 .editor {
   grid-area: editor;
-  border-right: 1px solid var(--border);
   overflow: hidden;
+}
+
+.splitter {
+  grid-area: splitter;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+.splitter:hover {
+  background: var(--muted);
 }
 .snapshot {
   grid-area: snapshot;
@@ -53,7 +62,6 @@ body {
 .console {
   grid-area: console;
   border-top: 1px solid var(--border);
-  border-right: 1px solid var(--border);
   padding: 8px 12px;
   overflow: auto;
   font-family: 'JetBrains Mono', monospace;

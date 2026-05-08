@@ -18,13 +18,31 @@ function renderValue(v: JSValue): string {
   }
 }
 
-function renderObject(obj: HeapObject, id: string) {
+function getPrimaryLabel(obj: HeapObject, heap: Map<string, HeapObject>): string {
+  if (obj.kind === 'function') {
+    const name = obj.source?.name;
+    return name ? `ƒ ${name}` : 'ƒ <anon>';
+  } else if (obj.kind === 'array') {
+    return 'array';
+  } else {
+    const ctor = obj.ownProps.get('constructor');
+    if (ctor && ctor.kind === 'ref') {
+      const ctorObj = heap.get(ctor.id);
+      const ctorName = ctorObj?.source?.name;
+      if (ctorName) return `${ctorName}.prototype`;
+    }
+    return 'object';
+  }
+}
+
+function renderObject(obj: HeapObject, id: string, heap: Map<string, HeapObject>) {
   const labelColor =
     obj.kind === 'function'
       ? 'var(--info)'
       : obj.kind === 'array'
         ? 'var(--accent)'
         : 'var(--good)';
+  const primaryLabel = getPrimaryLabel(obj, heap);
   return (
     <div
       key={id}
@@ -39,10 +57,10 @@ function renderObject(obj: HeapObject, id: string) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <span style={{ color: labelColor }}>
-          {obj.kind} #{id}
+          {primaryLabel}
         </span>
         <span style={{ color: 'var(--muted)', fontSize: 10 }}>
-          {obj.source?.name ? `ƒ ${obj.source.name}` : ''}
+          #{id}
         </span>
       </div>
       {Array.from(obj.ownProps.entries()).map(([k, v]) => (
@@ -64,7 +82,7 @@ export function HeapView() {
     <div style={{ marginTop: 12 }}>
       <div className="section-title">Heap ({snap.heap.size})</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {Array.from(snap.heap.entries()).map(([id, obj]) => renderObject(obj, id))}
+        {Array.from(snap.heap.entries()).map(([id, obj]) => renderObject(obj, id, snap.heap))}
         {snap.heap.size === 0 && <div style={{ color: 'var(--muted)', fontSize: 12 }}>(empty)</div>}
       </div>
     </div>
