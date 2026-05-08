@@ -38,7 +38,7 @@ describe('Heap', () => {
     const refB1 = b.allocate({ kind: 'object', ownProps: new Map(), prototype: null });
     const refA2 = a.allocate({ kind: 'object', ownProps: new Map(), prototype: null });
     expect(refA1.id).toBe('obj1');
-    expect(refB1.id).toBe('obj1');  // independent counter
+    expect(refB1.id).toBe('obj1'); // independent counter
     expect(refA2.id).toBe('obj2');
   });
 });

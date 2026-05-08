@@ -177,26 +177,18 @@ function typeOf(v: JSValue): string {
   }
 }
 
-function* evalVarDecl(
-  node: A.VariableDeclaration,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalVarDecl(node: A.VariableDeclaration, ctx: Context): Generator<StepEvent, JSValue> {
   const kind = node.kind as 'let' | 'const' | 'var';
   for (const decl of node.declarations) {
     const id = decl.id as A.Identifier;
-    const value: JSValue = decl.init
-      ? yield* evalNode(decl.init, ctx)
-      : { kind: 'undefined' };
+    const value: JSValue = decl.init ? yield* evalNode(decl.init, ctx) : { kind: 'undefined' };
     ctx.stack.top()!.env.define(id.name, value, kind);
     yield { kind: 'assign', loc: locOf(node), payload: { name: id.name, kind } };
   }
   return { kind: 'undefined' };
 }
 
-function* evalAssign(
-  node: A.AssignmentExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalAssign(node: A.AssignmentExpression, ctx: Context): Generator<StepEvent, JSValue> {
   if (node.operator !== '=') {
     throw new Error(`Compound assignment ${node.operator} not yet supported`);
   }
@@ -225,10 +217,7 @@ function locOf(node: A.Node): { line: number; col: number } {
   return { line: node.loc?.start.line ?? 0, col: node.loc?.start.column ?? 0 };
 }
 
-function* evalBlock(
-  node: A.BlockStatement,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalBlock(node: A.BlockStatement, ctx: Context): Generator<StepEvent, JSValue> {
   const top = ctx.stack.top();
   if (!top) throw new Error('Internal: no active frame for BlockStatement');
   const blockEnv = new EnvironmentRecord(top.env);
@@ -243,30 +232,21 @@ function* evalBlock(
   return last;
 }
 
-function* evalIf(
-  node: A.IfStatement,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalIf(node: A.IfStatement, ctx: Context): Generator<StepEvent, JSValue> {
   const test = yield* evalNode(node.test, ctx);
   if (toBoolean(test)) return yield* evalNode(node.consequent, ctx);
   if (node.alternate) return yield* evalNode(node.alternate, ctx);
   return { kind: 'undefined' };
 }
 
-function* evalWhile(
-  node: A.WhileStatement,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalWhile(node: A.WhileStatement, ctx: Context): Generator<StepEvent, JSValue> {
   while (toBoolean(yield* evalNode(node.test, ctx))) {
     yield* evalNode(node.body, ctx);
   }
   return { kind: 'undefined' };
 }
 
-function* evalFor(
-  node: A.ForStatement,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalFor(node: A.ForStatement, ctx: Context): Generator<StepEvent, JSValue> {
   const top = ctx.stack.top();
   if (!top) throw new Error('Internal: no active frame for ForStatement');
   const forEnv = new EnvironmentRecord(top.env);
@@ -331,10 +311,7 @@ function* evalFunctionDecl(
   return { kind: 'undefined' };
 }
 
-function* evalCall(
-  node: A.CallExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalCall(node: A.CallExpression, ctx: Context): Generator<StepEvent, JSValue> {
   const callee = yield* evalNode(node.callee as A.Node, ctx);
   if (callee.kind !== 'ref') {
     throw new Error('TypeError: call target is not a function');
@@ -407,20 +384,12 @@ function* evalCall(
   return returnValue;
 }
 
-function* evalReturn(
-  node: A.ReturnStatement,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
-  const v: JSValue = node.argument
-    ? yield* evalNode(node.argument, ctx)
-    : { kind: 'undefined' };
+function* evalReturn(node: A.ReturnStatement, ctx: Context): Generator<StepEvent, JSValue> {
+  const v: JSValue = node.argument ? yield* evalNode(node.argument, ctx) : { kind: 'undefined' };
   throw new ReturnSignal(v);
 }
 
-function* evalUpdate(
-  node: A.UpdateExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalUpdate(node: A.UpdateExpression, ctx: Context): Generator<StepEvent, JSValue> {
   if (node.argument.type !== 'Identifier') {
     throw new Error('UpdateExpression: only Identifier targets supported in plan 1');
   }
@@ -436,10 +405,7 @@ function* evalUpdate(
   return node.prefix ? after : { kind: 'number', value: beforeNum };
 }
 
-function* evalObjectLiteral(
-  node: A.ObjectExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalObjectLiteral(node: A.ObjectExpression, ctx: Context): Generator<StepEvent, JSValue> {
   const ref = ctx.heap.allocate({
     kind: 'object',
     ownProps: new Map(),
@@ -465,10 +431,7 @@ function* evalObjectLiteral(
   return ref;
 }
 
-function* evalArrayLiteral(
-  node: A.ArrayExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalArrayLiteral(node: A.ArrayExpression, ctx: Context): Generator<StepEvent, JSValue> {
   const ref = ctx.heap.allocate({
     kind: 'array',
     ownProps: new Map(),
@@ -485,10 +448,7 @@ function* evalArrayLiteral(
   return ref;
 }
 
-function* evalMember(
-  node: A.MemberExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalMember(node: A.MemberExpression, ctx: Context): Generator<StepEvent, JSValue> {
   const obj = yield* evalNode(node.object as A.Node, ctx);
   if (obj.kind !== 'ref') {
     throw new Error('TypeError: property access on primitive (plan 4 will lift via prototypes)');
@@ -501,10 +461,7 @@ function* evalMember(
   return v ?? { kind: 'undefined' };
 }
 
-function* memberKey(
-  node: A.MemberExpression,
-  ctx: Context,
-): Generator<StepEvent, string> {
+function* memberKey(node: A.MemberExpression, ctx: Context): Generator<StepEvent, string> {
   if (!node.computed && node.property.type === 'Identifier') {
     return node.property.name;
   }

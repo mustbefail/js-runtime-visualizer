@@ -1,10 +1,5 @@
 import { freeze } from 'immer';
-import type {
-  CaptureInput,
-  FrameSnapshot,
-  ISnapshotStore,
-  Snapshot,
-} from './types';
+import type { CaptureInput, FrameSnapshot, ISnapshotStore, Snapshot } from './types';
 
 export class SnapshotStore implements ISnapshotStore {
   private snaps: Snapshot[] = [];

@@ -30,7 +30,11 @@ describe('SnapshotStore', () => {
 
   it('returns immutable snapshots — later mutation does not affect captured state', () => {
     const heap = new Heap();
-    const ref = heap.allocate({ kind: 'object', ownProps: new Map([['n', num(1)]]), prototype: null });
+    const ref = heap.allocate({
+      kind: 'object',
+      ownProps: new Map([['n', num(1)]]),
+      prototype: null,
+    });
     const stack = new CallStack();
 
     const store = new SnapshotStore();

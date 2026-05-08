@@ -4,14 +4,7 @@ import { CallStack } from '../runtime/frames';
 import { EnvironmentRecord } from '../runtime/env';
 import { seedBuiltins } from '../runtime/builtins';
 import { SnapshotStore } from '../snapshot';
-import type {
-  Context,
-  JSValue,
-  RunOptions,
-  RunResult,
-  SourceLoc,
-  StepEvent,
-} from '../types';
+import type { Context, JSValue, RunOptions, RunResult, SourceLoc, StepEvent } from '../types';
 import { evalNode } from './nodes';
 
 export function runCode(code: string, options: RunOptions = {}): RunResult {
@@ -50,7 +43,7 @@ export function runCode(code: string, options: RunOptions = {}): RunResult {
 
   const gen = evalNode(parsed.ast, ctx);
   let last: JSValue = { kind: 'undefined' };
-  while (true) {
+  for (;;) {
     const step = gen.next();
     if (step.done) {
       last = step.value;
