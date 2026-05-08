@@ -41,4 +41,29 @@ describe('Heap', () => {
     expect(refB1.id).toBe('obj1'); // independent counter
     expect(refA2.id).toBe('obj2');
   });
+
+  it('reuses HeapObject references across consecutive snapshots when nothing changed', () => {
+    const heap = new Heap();
+    const a = heap.allocate({ kind: 'object', ownProps: new Map(), prototype: null });
+    const b = heap.allocate({ kind: 'object', ownProps: new Map(), prototype: null });
+    const snap1 = heap.snapshot();
+    const snap2 = heap.snapshot();
+    // Identical content, no mutations between captures: same HeapObject refs.
+    expect(snap2.get(a.id)).toBe(snap1.get(a.id));
+    expect(snap2.get(b.id)).toBe(snap1.get(b.id));
+  });
+
+  it('produces fresh HeapObject for ids mutated between snapshots', () => {
+    const heap = new Heap();
+    const a = heap.allocate({ kind: 'object', ownProps: new Map(), prototype: null });
+    const b = heap.allocate({ kind: 'object', ownProps: new Map(), prototype: null });
+    const snap1 = heap.snapshot();
+    heap.setProp(a.id, 'x', { kind: 'number', value: 1 });
+    const snap2 = heap.snapshot();
+    expect(snap2.get(a.id)).not.toBe(snap1.get(a.id));         // changed
+    expect(snap2.get(b.id)).toBe(snap1.get(b.id));             // unchanged → shared
+    expect(snap2.get(a.id)?.ownProps.get('x')).toEqual({ kind: 'number', value: 1 });
+    // snap1 must remain unchanged
+    expect(snap1.get(a.id)?.ownProps.has('x')).toBe(false);
+  });
 });
