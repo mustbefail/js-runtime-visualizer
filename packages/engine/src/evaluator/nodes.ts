@@ -3,6 +3,7 @@ import { type JSValue, num, bool } from '../types';
 import type { StepEvent } from '../types';
 import type { Context } from '../types';
 import { fromJsLiteral, toBoolean, toNumber } from './values';
+import { EnvironmentRecord } from '../runtime/env';
 
 export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSValue> {
   switch (node.type) {
@@ -31,6 +32,14 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return yield* evalVarDecl(node as A.VariableDeclaration, ctx);
     case 'AssignmentExpression':
       return yield* evalAssign(node as A.AssignmentExpression, ctx);
+    case 'BlockStatement':
+      return yield* evalBlock(node as A.BlockStatement, ctx);
+    case 'IfStatement':
+      return yield* evalIf(node as A.IfStatement, ctx);
+    case 'WhileStatement':
+      return yield* evalWhile(node as A.WhileStatement, ctx);
+    case 'ForStatement':
+      return yield* evalFor(node as A.ForStatement, ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -168,4 +177,63 @@ function* evalAssign(
 
 function locOf(node: A.Node): { line: number; col: number } {
   return { line: node.loc?.start.line ?? 0, col: node.loc?.start.column ?? 0 };
+}
+
+function* evalBlock(
+  node: A.BlockStatement,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const top = ctx.stack.top();
+  if (!top) throw new Error('Internal: no active frame for BlockStatement');
+  const blockEnv = new EnvironmentRecord(top.env);
+  const saved = top.env;
+  top.env = blockEnv;
+  let last: JSValue = { kind: 'undefined' };
+  try {
+    for (const stmt of node.body) last = yield* evalNode(stmt, ctx);
+  } finally {
+    top.env = saved;
+  }
+  return last;
+}
+
+function* evalIf(
+  node: A.IfStatement,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const test = yield* evalNode(node.test, ctx);
+  if (toBoolean(test)) return yield* evalNode(node.consequent, ctx);
+  if (node.alternate) return yield* evalNode(node.alternate, ctx);
+  return { kind: 'undefined' };
+}
+
+function* evalWhile(
+  node: A.WhileStatement,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  while (toBoolean(yield* evalNode(node.test, ctx))) {
+    yield* evalNode(node.body, ctx);
+  }
+  return { kind: 'undefined' };
+}
+
+function* evalFor(
+  node: A.ForStatement,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const top = ctx.stack.top();
+  if (!top) throw new Error('Internal: no active frame for ForStatement');
+  const forEnv = new EnvironmentRecord(top.env);
+  const saved = top.env;
+  top.env = forEnv;
+  try {
+    if (node.init) yield* evalNode(node.init, ctx);
+    while (node.test ? toBoolean(yield* evalNode(node.test, ctx)) : true) {
+      yield* evalNode(node.body, ctx);
+      if (node.update) yield* evalNode(node.update, ctx);
+    }
+  } finally {
+    top.env = saved;
+  }
+  return { kind: 'undefined' };
 }
