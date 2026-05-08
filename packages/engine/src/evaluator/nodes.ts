@@ -326,12 +326,28 @@ function* evalCall(
     throw new Error('TypeError: call target is not a function');
   }
   const fnObj = ctx.heap.get(callee.id);
-  if (!fnObj || fnObj.kind !== 'function' || !fnObj.source || !fnObj.closure) {
+  if (!fnObj || fnObj.kind !== 'function') {
     throw new Error('TypeError: callee is not a callable function');
   }
+
   const args: JSValue[] = [];
   for (const a of node.arguments) {
     args.push(yield* evalNode(a as A.Node, ctx));
+  }
+
+  if (fnObj.native) {
+    const result = fnObj.native(args, { consoleOut: ctx.consoleOut });
+    const lastLine = ctx.consoleOut[ctx.consoleOut.length - 1];
+    yield {
+      kind: 'console',
+      loc: locOf(node),
+      payload: { line: lastLine },
+    };
+    return result;
+  }
+
+  if (!fnObj.source || !fnObj.closure) {
+    throw new Error('TypeError: callee is not a callable function');
   }
 
   const callEnv = new EnvironmentRecord(fnObj.closure);

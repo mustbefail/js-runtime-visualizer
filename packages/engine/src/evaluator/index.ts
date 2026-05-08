@@ -2,6 +2,7 @@ import { parse } from '../parser';
 import { Heap } from '../runtime/heap';
 import { CallStack } from '../runtime/frames';
 import { EnvironmentRecord } from '../runtime/env';
+import { seedBuiltins } from '../runtime/builtins';
 import { SnapshotStore } from '../snapshot';
 import type {
   Context,
@@ -31,6 +32,8 @@ export function runCode(code: string, options: RunOptions = {}): RunResult {
     consoleOut: [],
     drillIn: options.drillIn ?? false,
   };
+
+  seedBuiltins(heap, globalEnv);
 
   stack.push({ fn: 'global', fnName: '<global>', env: globalEnv, callSite: null });
 
