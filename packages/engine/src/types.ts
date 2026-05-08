@@ -94,7 +94,10 @@ export type EventKind =
   | 'allocate'
   | 'lookup'
   | 'mutate'
-  | 'console';
+  | 'console'
+  | 'proto-walk'
+  | 'proto-set'
+  | 'bind-this';
 
 export type StepEvent = {
   kind: EventKind;

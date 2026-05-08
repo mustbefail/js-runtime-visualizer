@@ -22,7 +22,7 @@ describe('evaluator — objects and arrays', () => {
     expect(finalValue).toEqual({ kind: 'number', value: 20 });
   });
 
-  it('returns undefined for missing property (own only — no prototype walk in plan 1)', () => {
+  it('returns undefined for missing property (no entry in entire prototype chain)', () => {
     const { finalValue } = runCode('const o = {}; o.missing;');
     expect(finalValue).toEqual({ kind: 'undefined' });
   });

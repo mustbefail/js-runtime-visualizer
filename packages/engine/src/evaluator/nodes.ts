@@ -256,7 +256,13 @@ function* evalAssign(
       op === '=' ? { kind: 'undefined' as const } : (heapObj.ownProps.get(key) ?? { kind: 'undefined' as const });
     const value = yield* computeCompound(current);
     ctx.heap.setProp(objVal.id, key, value);
-    yield { kind: 'mutate', loc: locOf(node), payload: { id: objVal.id, key, op } };
+    const isProtoRewire =
+      key === 'prototype' && heapObj.kind === 'function' && value.kind === 'ref';
+    yield {
+      kind: isProtoRewire ? 'proto-set' : 'mutate',
+      loc: locOf(node),
+      payload: { id: objVal.id, key, op },
+    };
     return value;
   }
 
@@ -530,17 +536,48 @@ function* evalArrayLiteral(node: A.ArrayExpression, ctx: Context): Generator<Ste
   return ref;
 }
 
-function* evalMember(node: A.MemberExpression, ctx: Context): Generator<StepEvent, JSValue> {
+function* evalMember(
+  node: A.MemberExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
   const obj = yield* evalNode(node.object as A.Node, ctx);
   if (obj.kind !== 'ref') {
-    throw new Error('TypeError: property access on primitive (plan 4 will lift via prototypes)');
+    throw new Error('TypeError: property access on primitive');
   }
   const key = yield* memberKey(node, ctx);
-  const heapObj = ctx.heap.get(obj.id);
-  if (!heapObj) throw new Error('Internal: ref points to no heap object');
-  const v = heapObj.ownProps.get(key);
-  yield { kind: 'lookup', loc: locOf(node), payload: { id: obj.id, key } };
-  return v ?? { kind: 'undefined' };
+
+  // Walk [[Prototype]] chain. Emit a proto-walk event for each hop after the
+  // first own-property miss.
+  const chain: string[] = [];
+  let cur: Reference | null = obj;
+  while (cur) {
+    chain.push(cur.id);
+    const heapObj = ctx.heap.get(cur.id);
+    if (!heapObj) throw new Error('Internal: ref points to no heap object');
+    if (heapObj.ownProps.has(key)) {
+      const value = heapObj.ownProps.get(key)!;
+      yield {
+        kind: 'lookup',
+        loc: locOf(node),
+        payload: { id: obj.id, key, foundOnId: cur.id, chain: [...chain] },
+      };
+      return value;
+    }
+    if (chain.length > 1) {
+      yield {
+        kind: 'proto-walk',
+        loc: locOf(node),
+        payload: { fromId: chain[chain.length - 2], toId: cur.id, key },
+      };
+    }
+    cur = heapObj.prototype;
+  }
+  yield {
+    kind: 'lookup',
+    loc: locOf(node),
+    payload: { id: obj.id, key, chain: [...chain], notFound: true },
+  };
+  return { kind: 'undefined' };
 }
 
 function* memberKey(node: A.MemberExpression, ctx: Context): Generator<StepEvent, string> {
