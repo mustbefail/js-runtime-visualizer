@@ -7,8 +7,10 @@
   "scripts": {
     "test": "vitest --run",
     "test:watch": "vitest",
-    "lint": "eslint . --ext .ts",
-    "format": "prettier --write ."
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "ui:dev": "npm --workspace @js-runtime-visualizer/ui run dev",
+    "ui:build": "npm --workspace @js-runtime-visualizer/ui run build"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
