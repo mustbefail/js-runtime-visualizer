@@ -28,3 +28,31 @@ export const STORAGE_PREFIX = 'jsrv';
 export const STORAGE_VERSION = 1;
 
 export const persistKey = (slot: string): string => `${STORAGE_PREFIX}:${slot}`;
+
+// =============================================================================
+// Canvas types (plan 3)
+// =============================================================================
+
+export type Pos = { x: number; y: number };
+
+export type NodeKind = 'frame' | 'heap';
+
+// A reference edge to render: from a binding inside a frame, or from an own
+// property of a heap object, to a heap object id.
+export type RefEdge = {
+  fromKind: NodeKind;
+  fromId: string;     // frame index as string (e.g. "frame-0") or heap id (e.g. "obj7")
+  fromLabel: string;  // the binding name or property key, used for tooltips
+  toId: string;       // heap id
+};
+
+// Persistent storage of node positions. Frame ids use synthetic key "frame-{index}".
+export type NodePositions = Map<string, Pos>;
+
+// Pan/zoom transient state (not persisted — fresh per session).
+export type PanZoom = { panX: number; panY: number; scale: number };
+
+// Drag transient state — null when no node is being dragged.
+export type DragState =
+  | { active: false }
+  | { active: true; id: string; pos: Pos };
