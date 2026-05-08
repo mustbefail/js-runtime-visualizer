@@ -52,6 +52,12 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return yield* evalReturn(node as A.ReturnStatement, ctx);
     case 'UpdateExpression':
       return yield* evalUpdate(node as A.UpdateExpression, ctx);
+    case 'ObjectExpression':
+      return yield* evalObjectLiteral(node as A.ObjectExpression, ctx);
+    case 'ArrayExpression':
+      return yield* evalArrayLiteral(node as A.ArrayExpression, ctx);
+    case 'MemberExpression':
+      return yield* evalMember(node as A.MemberExpression, ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -180,11 +186,25 @@ function* evalAssign(
   if (node.operator !== '=') {
     throw new Error(`Compound assignment ${node.operator} not yet supported`);
   }
-  const target = node.left as A.Identifier;
   const value = yield* evalNode(node.right, ctx);
-  ctx.stack.top()!.env.assign(target.name, value);
-  yield { kind: 'assign', loc: locOf(node), payload: { name: target.name } };
-  return value;
+  if (node.left.type === 'Identifier') {
+    const top = ctx.stack.top();
+    if (!top) throw new Error('Internal: no active frame for assignment');
+    top.env.assign(node.left.name, value);
+    yield { kind: 'assign', loc: locOf(node), payload: { name: node.left.name } };
+    return value;
+  }
+  if (node.left.type === 'MemberExpression') {
+    const objVal = yield* evalNode(node.left.object as A.Node, ctx);
+    if (objVal.kind !== 'ref') {
+      throw new Error('TypeError: assignment target is primitive');
+    }
+    const key = yield* memberKey(node.left, ctx);
+    ctx.heap.setProp(objVal.id, key, value);
+    yield { kind: 'mutate', loc: locOf(node), payload: { id: objVal.id, key } };
+    return value;
+  }
+  throw new Error(`AssignmentExpression: unsupported target ${node.left.type}`);
 }
 
 function locOf(node: A.Node): { line: number; col: number } {
@@ -384,4 +404,91 @@ function* evalUpdate(
   env.assign(node.argument.name, after);
   yield { kind: 'assign', loc: locOf(node), payload: { name: node.argument.name } };
   return node.prefix ? after : { kind: 'number', value: beforeNum };
+}
+
+function* evalObjectLiteral(
+  node: A.ObjectExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const ref = ctx.heap.allocate({
+    kind: 'object',
+    ownProps: new Map(),
+    prototype: null,
+  });
+  yield { kind: 'allocate', loc: locOf(node), payload: { id: ref.id, kind: 'object' } };
+  for (const propNode of node.properties) {
+    if (propNode.type !== 'Property') {
+      throw new Error('UnsupportedError: spread in object literals (plan 4)');
+    }
+    const p = propNode as A.Property;
+    let key: string;
+    if (!p.computed && p.key.type === 'Identifier') {
+      key = p.key.name;
+    } else {
+      const k = yield* evalNode(p.key as A.Node, ctx);
+      key = stringifyKey(k);
+    }
+    const value = yield* evalNode(p.value as A.Node, ctx);
+    ctx.heap.setProp(ref.id, key, value);
+    yield { kind: 'mutate', loc: locOf(p), payload: { id: ref.id, key } };
+  }
+  return ref;
+}
+
+function* evalArrayLiteral(
+  node: A.ArrayExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const ref = ctx.heap.allocate({
+    kind: 'array',
+    ownProps: new Map(),
+    prototype: null,
+  });
+  yield { kind: 'allocate', loc: locOf(node), payload: { id: ref.id, kind: 'array' } };
+  for (let i = 0; i < node.elements.length; i++) {
+    const elem = node.elements[i];
+    if (elem === null) continue;
+    const v = yield* evalNode(elem as A.Node, ctx);
+    ctx.heap.setProp(ref.id, String(i), v);
+  }
+  ctx.heap.setProp(ref.id, 'length', { kind: 'number', value: node.elements.length });
+  return ref;
+}
+
+function* evalMember(
+  node: A.MemberExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const obj = yield* evalNode(node.object as A.Node, ctx);
+  if (obj.kind !== 'ref') {
+    throw new Error('TypeError: property access on primitive (plan 4 will lift via prototypes)');
+  }
+  const key = yield* memberKey(node, ctx);
+  const heapObj = ctx.heap.get(obj.id);
+  if (!heapObj) throw new Error('Internal: ref points to no heap object');
+  const v = heapObj.ownProps.get(key);
+  yield { kind: 'lookup', loc: locOf(node), payload: { id: obj.id, key } };
+  return v ?? { kind: 'undefined' };
+}
+
+function* memberKey(
+  node: A.MemberExpression,
+  ctx: Context,
+): Generator<StepEvent, string> {
+  if (!node.computed && node.property.type === 'Identifier') {
+    return node.property.name;
+  }
+  const k = yield* evalNode(node.property as A.Node, ctx);
+  return stringifyKey(k);
+}
+
+function stringifyKey(v: JSValue): string {
+  switch (v.kind) {
+    case 'string':
+      return v.value;
+    case 'number':
+      return String(v.value);
+    default:
+      return stringify(v);
+  }
 }
