@@ -1,9 +1,6 @@
 import * as acorn from 'acorn';
 import type { Program } from 'acorn';
-
-export type ParseResult =
-  | { ok: true; ast: Program }
-  | { ok: false; error: { message: string; line: number; col: number } };
+import type { ParseResult } from './types';
 
 export function parse(code: string): ParseResult {
   try {
