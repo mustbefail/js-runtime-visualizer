@@ -1,7 +1,7 @@
 import { Toolbar } from './components/Toolbar';
 import { EditorPane } from './components/EditorPane';
 import { ScrubberPane } from './components/ScrubberPane';
-import { SnapshotPane } from './components/SnapshotPane';
+import { CanvasPane } from './components/CanvasPane';
 import { ConsoleView } from './components/ConsoleView';
 import './styles/app.css';
 
@@ -10,7 +10,7 @@ export function App() {
     <div className="app">
       <Toolbar />
       <EditorPane />
-      <SnapshotPane />
+      <CanvasPane />
       <ConsoleView />
       <ScrubberPane />
     </div>
