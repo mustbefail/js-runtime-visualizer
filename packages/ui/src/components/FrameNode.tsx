@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAtom, useFrame } from '@reatom/react';
 import { collapsedIdsAtom } from '../atoms/session';
 import { dragStateAtom } from '../atoms/canvas';
