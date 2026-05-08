@@ -15,12 +15,22 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
     case 'Identifier': {
       const name = (node as A.Identifier).name;
       if (name === 'undefined') return { kind: 'undefined' };
-      throw new Error(`Identifier '${name}' not yet supported (Task 7 will add bindings)`);
+      const env = ctx.stack.top()!.env;
+      if (!env.has(name)) {
+        throw new Error(`ReferenceError: ${name} is not defined`);
+      }
+      const value = env.lookup(name);
+      yield { kind: 'lookup', loc: locOf(node), payload: { name } };
+      return value;
     }
     case 'BinaryExpression':
       return yield* evalBinary(node as A.BinaryExpression, ctx);
     case 'UnaryExpression':
       return yield* evalUnary(node as A.UnaryExpression, ctx);
+    case 'VariableDeclaration':
+      return yield* evalVarDecl(node as A.VariableDeclaration, ctx);
+    case 'AssignmentExpression':
+      return yield* evalAssign(node as A.AssignmentExpression, ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -124,4 +134,38 @@ function typeOf(v: JSValue): string {
     case 'ref':
       return 'object';
   }
+}
+
+function* evalVarDecl(
+  node: A.VariableDeclaration,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const kind = node.kind as 'let' | 'const' | 'var';
+  for (const decl of node.declarations) {
+    const id = decl.id as A.Identifier;
+    const value: JSValue = decl.init
+      ? yield* evalNode(decl.init, ctx)
+      : { kind: 'undefined' };
+    ctx.stack.top()!.env.define(id.name, value, kind);
+    yield { kind: 'assign', loc: locOf(node), payload: { name: id.name, kind } };
+  }
+  return { kind: 'undefined' };
+}
+
+function* evalAssign(
+  node: A.AssignmentExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  if (node.operator !== '=') {
+    throw new Error(`Compound assignment ${node.operator} not yet supported`);
+  }
+  const target = node.left as A.Identifier;
+  const value = yield* evalNode(node.right, ctx);
+  ctx.stack.top()!.env.assign(target.name, value);
+  yield { kind: 'assign', loc: locOf(node), payload: { name: target.name } };
+  return value;
+}
+
+function locOf(node: A.Node): { line: number; col: number } {
+  return { line: node.loc?.start.line ?? 0, col: node.loc?.start.column ?? 0 };
 }
