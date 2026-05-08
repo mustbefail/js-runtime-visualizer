@@ -5,6 +5,7 @@ import type { Context } from '../types';
 import { fromJsLiteral, toBoolean, toNumber } from './values';
 import { EnvironmentRecord } from '../runtime/env';
 import type { IEnvironmentRecord } from '../types';
+import { getHostPrototypes } from '../runtime/builtins';
 
 export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSValue> {
   switch (node.type) {
@@ -356,6 +357,19 @@ function makeFunctionRef(
       isArrow,
     },
   });
+  // Auto-allocate Foo.prototype = { constructor: Foo }, [[Prototype]] = objectProto.
+  const protos = getHostPrototypes(ctx.heap);
+  const protoObj = ctx.heap.allocate({
+    kind: 'object',
+    ownProps: new Map<string, JSValue>([['constructor', ref]]),
+    prototype: protos?.objectProto ?? null,
+  });
+  ctx.heap.setProp(ref.id, 'prototype', protoObj);
+  // Functions themselves descend from Function.prototype.
+  if (protos) {
+    const fnObj = ctx.heap.get(ref.id);
+    if (fnObj) fnObj.prototype = protos.functionProto;
+  }
   if (selfBindingName) {
     closureEnv.define(selfBindingName, ref, 'const');
   }
@@ -477,7 +491,7 @@ function* evalObjectLiteral(node: A.ObjectExpression, ctx: Context): Generator<S
   const ref = ctx.heap.allocate({
     kind: 'object',
     ownProps: new Map(),
-    prototype: null,
+    prototype: getHostPrototypes(ctx.heap)?.objectProto ?? null,
   });
   yield { kind: 'allocate', loc: locOf(node), payload: { id: ref.id, kind: 'object' } };
   for (const propNode of node.properties) {
@@ -503,7 +517,7 @@ function* evalArrayLiteral(node: A.ArrayExpression, ctx: Context): Generator<Ste
   const ref = ctx.heap.allocate({
     kind: 'array',
     ownProps: new Map(),
-    prototype: null,
+    prototype: getHostPrototypes(ctx.heap)?.arrayProto ?? null,
   });
   yield { kind: 'allocate', loc: locOf(node), payload: { id: ref.id, kind: 'array' } };
   for (let i = 0; i < node.elements.length; i++) {
