@@ -50,6 +50,8 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return makeFunctionRef(node as A.ArrowFunctionExpression, ctx, true);
     case 'CallExpression':
       return yield* evalCall(node as A.CallExpression, ctx);
+    case 'NewExpression':
+      return yield* evalNew(node as A.NewExpression, ctx);
     case 'ReturnStatement':
       return yield* evalReturn(node as A.ReturnStatement, ctx);
     case 'UpdateExpression':
@@ -703,6 +705,52 @@ function* invokeFunction(
     payload: { returnValue },
   };
   return returnValue;
+}
+
+function* evalNew(
+  node: A.NewExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const callee = yield* evalNode(node.callee as A.Node, ctx);
+  if (callee.kind !== 'ref') {
+    throw new Error('TypeError: new target is not a function');
+  }
+  const fnObj = ctx.heap.get(callee.id);
+  if (!fnObj || fnObj.kind !== 'function') {
+    throw new Error('TypeError: new target is not a function');
+  }
+  // Look up Foo.prototype to use as [[Prototype]] for the new instance.
+  const fooPrototype = fnObj.ownProps.get('prototype');
+  const protoRef =
+    fooPrototype && fooPrototype.kind === 'ref'
+      ? fooPrototype
+      : (getHostPrototypes(ctx.heap)?.objectProto ?? null);
+  const instance = ctx.heap.allocate({
+    kind: 'object',
+    ownProps: new Map(),
+    prototype: protoRef,
+  });
+  yield {
+    kind: 'allocate',
+    loc: locOf(node),
+    payload: { id: instance.id, kind: 'object', via: 'new' },
+  };
+
+  const args: JSValue[] = [];
+  for (const a of node.arguments) args.push(yield* evalNode(a as A.Node, ctx));
+
+  const result = yield* invokeFunction(
+    fnObj,
+    callee,
+    instance,
+    args,
+    node as unknown as A.CallExpression,
+    ctx,
+  );
+  // Spec: if the constructor returned a non-primitive object, use it; else
+  // return the new instance.
+  if (result.kind === 'ref') return result;
+  return instance;
 }
 
 function* evalNodeMemberAsCallee(
