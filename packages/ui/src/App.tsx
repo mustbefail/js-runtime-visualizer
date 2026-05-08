@@ -1,5 +1,5 @@
 import { Toolbar } from './components/Toolbar';
-import { EditorPane } from './components/EditorPane';
+import { EditorPaneLazy } from './components/EditorPaneLazy';
 import { ScrubberPane } from './components/ScrubberPane';
 import { CanvasPane } from './components/CanvasPane';
 import { ConsoleView } from './components/ConsoleView';
@@ -9,7 +9,7 @@ export function App() {
   return (
     <div className="app">
       <Toolbar />
-      <EditorPane />
+      <EditorPaneLazy />
       <CanvasPane />
       <ConsoleView />
       <ScrubberPane />
