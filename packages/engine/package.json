@@ -1,0 +1,11 @@
+{
+  "name": "@js-runtime-visualizer/engine",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "acorn": "^8.11.3",
+    "immer": "^10.0.4"
+  }
+}
