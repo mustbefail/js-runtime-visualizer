@@ -75,6 +75,9 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       if (!top) throw new Error('Internal: no active frame for ThisExpression');
       return top.thisValue;
     }
+    case 'ClassDeclaration':
+    case 'ClassExpression':
+      return yield* evalClass(node as A.Class, ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -776,4 +779,79 @@ function* evalNodeMemberAsCallee(
     cur = heapObj.prototype;
   }
   return { kind: 'undefined' };
+}
+
+function* evalClass(node: A.Class, ctx: Context): Generator<StepEvent, JSValue> {
+  let ctorMethod: A.MethodDefinition | null = null;
+  const instanceMethods: A.MethodDefinition[] = [];
+  const staticMethods: A.MethodDefinition[] = [];
+  for (const member of node.body.body) {
+    if (member.type !== 'MethodDefinition') continue;
+    if (member.kind === 'constructor') ctorMethod = member;
+    else if (member.static) staticMethods.push(member);
+    else instanceMethods.push(member);
+  }
+
+  // Build the class function from the constructor (or an empty one).
+  const classFn: A.FunctionExpression = ctorMethod
+    ? (ctorMethod.value as A.FunctionExpression)
+    : ({
+        type: 'FunctionExpression',
+        params: [],
+        body: { type: 'BlockStatement', body: [], start: node.start ?? 0, end: node.end ?? 0 } as A.BlockStatement,
+        async: false,
+        generator: false,
+        loc: node.loc ?? null,
+        start: node.start ?? 0,
+        end: node.end ?? 0,
+      } as unknown as A.FunctionExpression);
+  const classRef = makeFunctionRef(classFn, ctx, false);
+
+  // Tag class name on the heap object for debug labels.
+  if (node.id) {
+    const fnObj = ctx.heap.get(classRef.id);
+    if (fnObj && fnObj.source) fnObj.source.name = node.id.name;
+  }
+
+  // Instance methods → Class.prototype.
+  const classObj = ctx.heap.get(classRef.id)!;
+  const protoVal = classObj.ownProps.get('prototype');
+  if (!protoVal || protoVal.kind !== 'ref') {
+    throw new Error('Internal: class function missing auto-allocated prototype');
+  }
+  for (const m of instanceMethods) {
+    const methodRef = makeFunctionRef(m.value as A.FunctionExpression, ctx, false);
+    const methodObj = ctx.heap.get(methodRef.id);
+    if (methodObj && methodObj.source && m.key.type === 'Identifier') {
+      methodObj.source.name = (m.key as A.Identifier).name;
+    }
+    if (m.key.type === 'Identifier') {
+      ctx.heap.setProp(protoVal.id, (m.key as A.Identifier).name, methodRef);
+    }
+  }
+
+  // Static methods → class function itself.
+  for (const m of staticMethods) {
+    const methodRef = makeFunctionRef(m.value as A.FunctionExpression, ctx, false);
+    const methodObj = ctx.heap.get(methodRef.id);
+    if (methodObj && methodObj.source && m.key.type === 'Identifier') {
+      methodObj.source.name = (m.key as A.Identifier).name;
+    }
+    if (m.key.type === 'Identifier') {
+      ctx.heap.setProp(classRef.id, (m.key as A.Identifier).name, methodRef);
+    }
+  }
+
+  // Bind into env if this is a declaration.
+  if (node.type === 'ClassDeclaration' && node.id) {
+    const top = ctx.stack.top();
+    if (top) top.env.define(node.id.name, classRef, 'let');
+  }
+
+  yield {
+    kind: 'allocate',
+    loc: locOf(node),
+    payload: { kind: 'function', name: node.id?.name, classDecl: true },
+  };
+  return classRef;
 }
