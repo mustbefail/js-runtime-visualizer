@@ -12,7 +12,7 @@ export const runAction = action(() => {
     snapshotsAtom.set(snapshots);
     finalValueAtom.set(finalValue);
     runErrorAtom.set(null);
-    currentStepIndexAtom.set(Math.max(0, snapshots.length - 1));
+    currentStepIndexAtom.set(0);
     isPlayingAtom.set(false);
   } catch (e) {
     runErrorAtom.set(e instanceof Error ? e.message : String(e));

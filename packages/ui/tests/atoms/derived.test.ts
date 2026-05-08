@@ -56,7 +56,7 @@ describe('derived atoms — scrubber bounds', () => {
     expect(isAtEndAtom()).toBe(true);
   });
 
-  it('runAction resets currentStepIndex to last step on success', async () => {
+  it('runAction resets currentStepIndex to 0 on success (start of execution)', async () => {
     const { codeAtom } = await import('../../src/atoms/session');
     const { currentStepIndexAtom } = await import('../../src/atoms/ui');
     const { totalStepsAtom } = await import('../../src/atoms/derived');
@@ -65,6 +65,7 @@ describe('derived atoms — scrubber bounds', () => {
     codeAtom.set('let x = 1; x;');
     runAction();
     const total = totalStepsAtom();
-    expect(currentStepIndexAtom()).toBe(total - 1);
+    expect(total).toBeGreaterThan(0);
+    expect(currentStepIndexAtom()).toBe(0);
   });
 });

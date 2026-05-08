@@ -20,6 +20,9 @@ test('type code → click Run → snapshots and console reflect user code', asyn
   // Snapshot pane reports a step count.
   await expect(snapshotPane).toContainText(/step \d+ \/ \d+/);
 
+  // Landing at step 0 should show "step 1 / N" (1-indexed display).
+  await expect(snapshotPane).toContainText(/step 1 \/ \d+/);
+
   // Call stack contains the global frame.
   await expect(snapshotPane).toContainText('<global>');
 
@@ -33,6 +36,9 @@ test('type code → click Run → snapshots and console reflect user code', asyn
   expect(match).not.toBeNull();
   const totalSteps = Number(match![1]);
   expect(totalSteps).toBeGreaterThanOrEqual(2);
+
+  // Advance to the last step so user-code bindings (x: 5) have been applied.
+  await page.getByRole('button', { name: '⏭' }).click();
 
   // Snapshot pane contains a binding from the user code (x: 5).
   await expect(snapshotPane).toContainText(/x:\s*5/);
