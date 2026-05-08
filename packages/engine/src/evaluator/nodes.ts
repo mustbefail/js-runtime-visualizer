@@ -813,6 +813,29 @@ function* evalClass(node: A.Class, ctx: Context): Generator<StepEvent, JSValue> 
     if (fnObj && fnObj.source) fnObj.source.name = node.id.name;
   }
 
+  // extends: chain B.prototype.[[Prototype]] = A.prototype, B.[[Prototype]] = A.
+  if (node.superClass) {
+    const parent = yield* evalNode(node.superClass as A.Node, ctx);
+    if (parent.kind !== 'ref') {
+      throw new Error('TypeError: superclass is not a constructor');
+    }
+    const parentObj = ctx.heap.get(parent.id);
+    if (!parentObj || parentObj.kind !== 'function') {
+      throw new Error('TypeError: superclass is not a function');
+    }
+    const parentProto = parentObj.ownProps.get('prototype');
+    if (parentProto && parentProto.kind === 'ref') {
+      const protoRef2 = ctx.heap.get(classRef.id)?.ownProps.get('prototype');
+      if (protoRef2 && protoRef2.kind === 'ref') {
+        const protoObj = ctx.heap.get(protoRef2.id);
+        if (protoObj) protoObj.prototype = parentProto;
+      }
+    }
+    const classObj2 = ctx.heap.get(classRef.id);
+    if (classObj2) classObj2.prototype = parent;
+    yield { kind: 'proto-set', loc: locOf(node), payload: { id: classRef.id, via: 'extends' } };
+  }
+
   // Instance methods → Class.prototype.
   const classObj = ctx.heap.get(classRef.id)!;
   const protoVal = classObj.ownProps.get('prototype');

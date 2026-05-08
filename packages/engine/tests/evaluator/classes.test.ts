@@ -30,4 +30,20 @@ describe('evaluator — class declarations', () => {
     `);
     expect(finalValue).toEqual({ kind: 'string', value: 'made' });
   });
+  it('extends chains prototype.[[Prototype]] to the parent.prototype', () => {
+    const { finalValue } = runCode(`
+      class A { greet() { return 'a'; } }
+      class B extends A {}
+      new B().greet();
+    `);
+    expect(finalValue).toEqual({ kind: 'string', value: 'a' });
+  });
+  it('extends chains static method inheritance', () => {
+    const { finalValue } = runCode(`
+      class A { static make() { return 'a'; } }
+      class B extends A {}
+      B.make();
+    `);
+    expect(finalValue).toEqual({ kind: 'string', value: 'a' });
+  });
 });
