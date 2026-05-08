@@ -1,6 +1,6 @@
 import type * as A from 'acorn';
 import { type JSValue, num, bool } from '../types';
-import type { StepEvent } from '../types';
+import type { FunctionSource, Reference, StepEvent } from '../types';
 import type { Context } from '../types';
 import { fromJsLiteral, toBoolean, toNumber } from './values';
 import { EnvironmentRecord } from '../runtime/env';
@@ -40,6 +40,18 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return yield* evalWhile(node as A.WhileStatement, ctx);
     case 'ForStatement':
       return yield* evalFor(node as A.ForStatement, ctx);
+    case 'FunctionDeclaration':
+      return yield* evalFunctionDecl(node as A.FunctionDeclaration, ctx);
+    case 'FunctionExpression':
+      return makeFunctionRef(node as A.FunctionExpression, ctx, false);
+    case 'ArrowFunctionExpression':
+      return makeFunctionRef(node as A.ArrowFunctionExpression, ctx, true);
+    case 'CallExpression':
+      return yield* evalCall(node as A.CallExpression, ctx);
+    case 'ReturnStatement':
+      return yield* evalReturn(node as A.ReturnStatement, ctx);
+    case 'UpdateExpression':
+      return yield* evalUpdate(node as A.UpdateExpression, ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -236,4 +248,140 @@ function* evalFor(
     top.env = saved;
   }
   return { kind: 'undefined' };
+}
+
+class ReturnSignal {
+  constructor(public value: JSValue) {}
+}
+
+function makeFunctionRef(
+  node: A.FunctionExpression | A.ArrowFunctionExpression | A.FunctionDeclaration,
+  ctx: Context,
+  isArrow: boolean,
+): Reference {
+  const top = ctx.stack.top();
+  if (!top) throw new Error('Internal: no active frame for function definition');
+  const env = top.env;
+  const params = (node.params as A.Identifier[]).map((p) => p.name);
+  const declName = 'id' in node && node.id ? node.id.name : undefined;
+  const source: FunctionSource = {
+    params,
+    body: node.body as A.Node,
+    isArrow,
+    ...(declName !== undefined ? { name: declName } : {}),
+  };
+  const ref = ctx.heap.allocate({
+    kind: 'function',
+    ownProps: new Map(),
+    prototype: null,
+    closure: env,
+    source,
+  });
+  return ref;
+}
+
+function* evalFunctionDecl(
+  node: A.FunctionDeclaration,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const ref = makeFunctionRef(node, ctx, false);
+  const top = ctx.stack.top();
+  if (!top) throw new Error('Internal: no active frame for FunctionDeclaration');
+  if (!node.id) throw new Error('FunctionDeclaration missing id');
+  top.env.define(node.id.name, ref, 'var');
+  yield {
+    kind: 'allocate',
+    loc: locOf(node),
+    payload: { kind: 'function', name: node.id.name },
+  };
+  return { kind: 'undefined' };
+}
+
+function* evalCall(
+  node: A.CallExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const callee = yield* evalNode(node.callee as A.Node, ctx);
+  if (callee.kind !== 'ref') {
+    throw new Error('TypeError: call target is not a function');
+  }
+  const fnObj = ctx.heap.get(callee.id);
+  if (!fnObj || fnObj.kind !== 'function' || !fnObj.source || !fnObj.closure) {
+    throw new Error('TypeError: callee is not a callable function');
+  }
+  const args: JSValue[] = [];
+  for (const a of node.arguments) {
+    args.push(yield* evalNode(a as A.Node, ctx));
+  }
+
+  const callEnv = new EnvironmentRecord(fnObj.closure);
+  fnObj.source.params.forEach((name, i) =>
+    callEnv.define(name, args[i] ?? { kind: 'undefined' }, 'let'),
+  );
+
+  ctx.stack.push({
+    fn: callee,
+    fnName: fnObj.source.name ?? '<anonymous>',
+    env: callEnv,
+    callSite: locOf(node),
+  });
+  yield {
+    kind: 'enter-frame',
+    loc: locOf(node),
+    payload: { fnName: fnObj.source.name },
+  };
+
+  let returnValue: JSValue = { kind: 'undefined' };
+  try {
+    const body = fnObj.source.body;
+    if (fnObj.source.isArrow && body.type !== 'BlockStatement') {
+      // concise-body arrow: body is the expression itself
+      returnValue = yield* evalNode(body, ctx);
+    } else {
+      yield* evalNode(body, ctx);
+    }
+  } catch (e) {
+    if (e instanceof ReturnSignal) {
+      returnValue = e.value;
+    } else {
+      throw e;
+    }
+  }
+
+  ctx.stack.pop();
+  yield {
+    kind: 'leave-frame',
+    loc: locOf(node),
+    payload: { returnValue },
+  };
+  return returnValue;
+}
+
+function* evalReturn(
+  node: A.ReturnStatement,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const v: JSValue = node.argument
+    ? yield* evalNode(node.argument, ctx)
+    : { kind: 'undefined' };
+  throw new ReturnSignal(v);
+}
+
+function* evalUpdate(
+  node: A.UpdateExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  if (node.argument.type !== 'Identifier') {
+    throw new Error('UpdateExpression: only Identifier targets supported in plan 1');
+  }
+  const top = ctx.stack.top();
+  if (!top) throw new Error('Internal: no active frame for UpdateExpression');
+  const env = top.env;
+  const before = env.lookup(node.argument.name);
+  const beforeNum = toNumber(before);
+  const afterNum = node.operator === '++' ? beforeNum + 1 : beforeNum - 1;
+  const after: JSValue = { kind: 'number', value: afterNum };
+  env.assign(node.argument.name, after);
+  yield { kind: 'assign', loc: locOf(node), payload: { name: node.argument.name } };
+  return node.prefix ? after : { kind: 'number', value: beforeNum };
 }
