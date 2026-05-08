@@ -80,6 +80,17 @@ export function CanvasPane() {
           >
             <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--info)" />
           </marker>
+          <marker
+            id="arrowhead-proto"
+            viewBox="0 0 10 10"
+            refX={9}
+            refY={5}
+            markerWidth={6}
+            markerHeight={6}
+            orient="auto"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent2)" />
+          </marker>
         </defs>
         <g transform={`translate(${pz.panX}, ${pz.panY}) scale(${pz.scale})`}>
           {snap && (

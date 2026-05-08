@@ -53,8 +53,19 @@ export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos }) {
   const lineHeight = 16;
   const padding = 6;
   const props_ = isCollapsed ? [] : Array.from(obj.ownProps.entries());
+  const capturedCount =
+    obj.kind === 'function' && obj.source?.capturedBindings && !isCollapsed
+      ? obj.source.capturedBindings.size
+      : 0;
+  const propRows = Math.max(1, props_.length);
   const height =
-    headerHeight + (isCollapsed ? 0 : padding + Math.max(1, props_.length) * lineHeight + padding);
+    headerHeight +
+    (isCollapsed
+      ? 0
+      : padding +
+        propRows * lineHeight +
+        (capturedCount > 0 ? (capturedCount + 1) * lineHeight + 4 : 0) +
+        padding);
 
   return (
     <g transform={`translate(${renderPos.x}, ${renderPos.y})`}>
@@ -121,6 +132,33 @@ export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos }) {
         >
           (no own props)
         </text>
+      )}
+      {!isCollapsed && obj.kind === 'function' && obj.source?.capturedBindings && obj.source.capturedBindings.size > 0 && (
+        <>
+          <text
+            x={10}
+            y={headerHeight + padding + (Math.max(1, props_.length) + 1) * lineHeight - 4}
+            fontSize={9}
+            fontFamily="JetBrains Mono, monospace"
+            fill="var(--accent2)"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            [[Environment]]
+          </text>
+          {Array.from(obj.source.capturedBindings.entries()).map(([k, v], i) => (
+            <text
+              key={`env-${k}`}
+              x={20}
+              y={headerHeight + padding + (Math.max(1, props_.length) + 2 + i) * lineHeight - 4}
+              fontSize={11}
+              fontFamily="JetBrains Mono, monospace"
+              fill="var(--text)"
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              <tspan fill="var(--accent2)">{k}</tspan>: {renderValue(v)}
+            </text>
+          ))}
+        </>
       )}
     </g>
   );

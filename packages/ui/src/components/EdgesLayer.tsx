@@ -46,10 +46,10 @@ export function EdgesLayer(props: { edges: RefEdge[] }) {
             key={`${e.fromId}-${e.fromLabel}-${e.toId}-${i}`}
             d={d}
             fill="none"
-            stroke="var(--info)"
-            strokeWidth={1.5}
+            stroke={e.edgeKind === 'proto' ? 'var(--accent2)' : 'var(--info)'}
+            strokeWidth={e.edgeKind === 'proto' ? 2 : 1.5}
             opacity={0.85}
-            markerEnd="url(#arrowhead)"
+            markerEnd={e.edgeKind === 'proto' ? 'url(#arrowhead-proto)' : 'url(#arrowhead)'}
           >
             <title>{`${e.fromLabel} → ${e.toId}`}</title>
           </path>

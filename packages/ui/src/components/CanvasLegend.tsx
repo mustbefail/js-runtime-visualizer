@@ -21,6 +21,9 @@ export function CanvasLegend() {
       <div>
         <span style={{ color: 'var(--info)' }}>━━</span> reference (variable / property)
       </div>
+      <div>
+        <span style={{ color: 'var(--accent2)' }}>━━</span> [[Prototype]]
+      </div>
       <div style={{ color: 'var(--muted)' }}>drag header · click ▾/▸ collapse · wheel zoom</div>
     </div>
   );
