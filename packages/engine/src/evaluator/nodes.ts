@@ -73,8 +73,10 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
 }
 
 function* evalProgram(node: A.Program, ctx: Context): Generator<StepEvent, JSValue> {
+  yield* hoistStatements(node.body as A.Statement[], ctx);
   let last: JSValue = { kind: 'undefined' };
   for (const stmt of node.body) {
+    if (stmt.type === 'FunctionDeclaration') continue; // already hoisted
     last = yield* evalNode(stmt, ctx);
   }
   return last;
@@ -190,9 +192,19 @@ function* evalVarDecl(node: A.VariableDeclaration, ctx: Context): Generator<Step
   const kind = node.kind as 'let' | 'const' | 'var';
   for (const decl of node.declarations) {
     const id = decl.id as A.Identifier;
-    const value: JSValue = decl.init ? yield* evalNode(decl.init, ctx) : { kind: 'undefined' };
-    ctx.stack.top()!.env.define(id.name, value, kind);
-    yield { kind: 'assign', loc: locOf(node), payload: { name: id.name, kind } };
+    const env = ctx.stack.top()!.env;
+    if (kind === 'var' && env.has(id.name)) {
+      // var was pre-hoisted; only assign if there's an initialiser
+      if (decl.init) {
+        const value = yield* evalNode(decl.init, ctx);
+        env.assign(id.name, value);
+        yield { kind: 'assign', loc: locOf(node), payload: { name: id.name, kind } };
+      }
+    } else {
+      const value: JSValue = decl.init ? yield* evalNode(decl.init, ctx) : { kind: 'undefined' };
+      env.define(id.name, value, kind);
+      yield { kind: 'assign', loc: locOf(node), payload: { name: id.name, kind } };
+    }
   }
   return { kind: 'undefined' };
 }
@@ -254,15 +266,22 @@ function locOf(node: A.Node): { line: number; col: number } {
   return { line: node.loc?.start.line ?? 0, col: node.loc?.start.column ?? 0 };
 }
 
-function* evalBlock(node: A.BlockStatement, ctx: Context): Generator<StepEvent, JSValue> {
+function* evalBlock(
+  node: A.BlockStatement,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
   const top = ctx.stack.top();
   if (!top) throw new Error('Internal: no active frame for BlockStatement');
   const blockEnv = new EnvironmentRecord(top.env);
   const saved = top.env;
   top.env = blockEnv;
+  yield* hoistStatements(node.body as A.Statement[], ctx);
   let last: JSValue = { kind: 'undefined' };
   try {
-    for (const stmt of node.body) last = yield* evalNode(stmt, ctx);
+    for (const stmt of node.body) {
+      if (stmt.type === 'FunctionDeclaration') continue;
+      last = yield* evalNode(stmt, ctx);
+    }
   } finally {
     top.env = saved;
   }
@@ -542,5 +561,35 @@ function* evalLogical(node: A.LogicalExpression, ctx: Context): Generator<StepEv
         : left;
     default:
       throw new Error(`Logical ${node.operator} not supported`);
+  }
+}
+
+function* hoistStatements(
+  body: A.Statement[],
+  ctx: Context,
+): Generator<StepEvent, void> {
+  const top = ctx.stack.top();
+  if (!top) throw new Error('Internal: no active frame for hoisting');
+  const env = top.env;
+  for (const stmt of body) {
+    if (stmt.type === 'FunctionDeclaration' && stmt.id) {
+      const ref = makeFunctionRef(stmt, ctx, false);
+      if (env.has(stmt.id.name)) {
+        env.assign(stmt.id.name, ref);
+      } else {
+        env.define(stmt.id.name, ref, 'var');
+      }
+      yield {
+        kind: 'allocate',
+        loc: locOf(stmt),
+        payload: { kind: 'function', name: stmt.id.name, hoisted: true },
+      };
+    } else if (stmt.type === 'VariableDeclaration' && stmt.kind === 'var') {
+      for (const decl of stmt.declarations) {
+        if (decl.id.type === 'Identifier' && !env.has(decl.id.name)) {
+          env.define(decl.id.name, { kind: 'undefined' }, 'var');
+        }
+      }
+    }
   }
 }
