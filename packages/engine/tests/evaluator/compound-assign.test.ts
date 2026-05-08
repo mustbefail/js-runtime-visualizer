@@ -18,6 +18,9 @@ describe('evaluator — compound assignment', () => {
     expect(runCode('let x = 0; x ??= 4; x;').finalValue).toEqual({ kind: 'number', value: 0 });
   });
   it('+= concatenates strings', () => {
-    expect(runCode('let s = "a"; s += "b"; s;').finalValue).toEqual({ kind: 'string', value: 'ab' });
+    expect(runCode('let s = "a"; s += "b"; s;').finalValue).toEqual({
+      kind: 'string',
+      value: 'ab',
+    });
   });
 });

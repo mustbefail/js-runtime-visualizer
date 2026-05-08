@@ -79,3 +79,19 @@ test('drag a frame → reload → position persisted', async ({ page }) => {
   // Allow up to 15px tolerance for sub-pixel rendering / measurement variance.
   expect(Math.abs(reloadBox.x - (initialBox.x + 200))).toBeLessThan(15);
 });
+
+test('class extends — prototype edge appears in the canvas', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => window.localStorage.clear());
+  await page.goto('/');
+  await page.waitForSelector('.cm-content', { timeout: 15_000 });
+  await page.click('.cm-content');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('class A {} class B extends A {} new B();');
+  await page.getByRole('button', { name: 'Run' }).click();
+  await page.getByRole('button', { name: '⏭' }).click();
+
+  const snapshotPane = page.locator('.snapshot');
+  await expect(snapshotPane.locator('svg')).toBeVisible();
+  await expect(snapshotPane).toContainText(/\[\[Prototype\]\]/);
+});

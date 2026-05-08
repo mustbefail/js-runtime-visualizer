@@ -41,8 +41,8 @@ export type NodeKind = 'frame' | 'heap';
 // property of a heap object, to a heap object id.
 export type RefEdge = {
   fromKind: NodeKind;
-  fromId: string;     // synthetic frame key or heap id
-  fromLabel: string;  // binding name, property key, or "[[Prototype]]"
+  fromId: string; // synthetic frame key or heap id
+  fromLabel: string; // binding name, property key, or "[[Prototype]]"
   toId: string;
   edgeKind: 'ref' | 'proto'; // ref = solid teal, proto = solid violet
 };

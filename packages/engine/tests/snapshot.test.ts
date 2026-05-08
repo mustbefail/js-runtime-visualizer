@@ -11,7 +11,13 @@ describe('SnapshotStore', () => {
     const stack = new CallStack();
     const env = new EnvironmentRecord(null);
     env.define('x', num(1), 'let');
-    stack.push({ fn: 'global', fnName: '<global>', env, callSite: null, thisValue: { kind: 'undefined' } });
+    stack.push({
+      fn: 'global',
+      fnName: '<global>',
+      env,
+      callSite: null,
+      thisValue: { kind: 'undefined' },
+    });
 
     const store = new SnapshotStore();
     store.capture({

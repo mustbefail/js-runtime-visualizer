@@ -222,10 +222,7 @@ function* evalVarDecl(node: A.VariableDeclaration, ctx: Context): Generator<Step
   return { kind: 'undefined' };
 }
 
-function* evalAssign(
-  node: A.AssignmentExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalAssign(node: A.AssignmentExpression, ctx: Context): Generator<StepEvent, JSValue> {
   const op = node.operator;
 
   // Compute the new value from current+rhs given the op. For `=`, ignores `current`
@@ -277,7 +274,9 @@ function* evalAssign(
     const heapObj = ctx.heap.get(objVal.id);
     if (!heapObj) throw new Error('Internal: ref points to no heap object');
     const current =
-      op === '=' ? { kind: 'undefined' as const } : (heapObj.ownProps.get(key) ?? { kind: 'undefined' as const });
+      op === '='
+        ? { kind: 'undefined' as const }
+        : (heapObj.ownProps.get(key) ?? { kind: 'undefined' as const });
     const value = yield* computeCompound(current);
     ctx.heap.setProp(objVal.id, key, value);
     const isProtoRewire =
@@ -297,10 +296,7 @@ function locOf(node: A.Node): { line: number; col: number } {
   return { line: node.loc?.start.line ?? 0, col: node.loc?.start.column ?? 0 };
 }
 
-function* evalBlock(
-  node: A.BlockStatement,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalBlock(node: A.BlockStatement, ctx: Context): Generator<StepEvent, JSValue> {
   const top = ctx.stack.top();
   if (!top) throw new Error('Internal: no active frame for BlockStatement');
   const blockEnv = new EnvironmentRecord(top.env);
@@ -371,10 +367,7 @@ function makeFunctionRef(
     closureEnv = new EnvironmentRecord(closureEnv);
   }
   const params = (node.params as A.Identifier[]).map((p) => p.name);
-  const declName =
-    node.type === 'FunctionDeclaration' && node.id
-      ? node.id.name
-      : selfBindingName;
+  const declName = node.type === 'FunctionDeclaration' && node.id ? node.id.name : selfBindingName;
   const ref = ctx.heap.allocate({
     kind: 'function',
     ownProps: new Map(),
@@ -424,10 +417,7 @@ function* evalFunctionDecl(
   return { kind: 'undefined' };
 }
 
-function* evalCall(
-  node: A.CallExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalCall(node: A.CallExpression, ctx: Context): Generator<StepEvent, JSValue> {
   // Special-case super() — parent constructor invocation.
   if (node.callee.type === 'Super') {
     const top = ctx.stack.top();
@@ -484,7 +474,11 @@ function* evalCall(
 
   // Intercept Function.prototype.call: shift first arg into thisValue.
   const builtinName = fnObj.ownProps.get('__builtin_name__');
-  if (builtinName && builtinName.kind === 'string' && builtinName.value === 'Function.prototype.call') {
+  if (
+    builtinName &&
+    builtinName.kind === 'string' &&
+    builtinName.value === 'Function.prototype.call'
+  ) {
     const targetFn = thisValue;
     if (targetFn.kind !== 'ref') {
       throw new Error('TypeError: Function.prototype.call requires a function this');
@@ -565,10 +559,7 @@ function* evalArrayLiteral(node: A.ArrayExpression, ctx: Context): Generator<Ste
   return ref;
 }
 
-function* evalMember(
-  node: A.MemberExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalMember(node: A.MemberExpression, ctx: Context): Generator<StepEvent, JSValue> {
   const obj = yield* evalNode(node.object as A.Node, ctx);
   if (obj.kind !== 'ref') {
     throw new Error('TypeError: property access on primitive');
@@ -650,10 +641,7 @@ function* evalLogical(node: A.LogicalExpression, ctx: Context): Generator<StepEv
   }
 }
 
-function* hoistStatements(
-  body: A.Statement[],
-  ctx: Context,
-): Generator<StepEvent, void> {
+function* hoistStatements(body: A.Statement[], ctx: Context): Generator<StepEvent, void> {
   const top = ctx.stack.top();
   if (!top) throw new Error('Internal: no active frame for hoisting');
   const env = top.env;
@@ -744,10 +732,7 @@ function* invokeFunction(
   return returnValue;
 }
 
-function* evalNew(
-  node: A.NewExpression,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalNew(node: A.NewExpression, ctx: Context): Generator<StepEvent, JSValue> {
   const callee = yield* evalNode(node.callee as A.Node, ctx);
   if (callee.kind !== 'ref') {
     throw new Error('TypeError: new target is not a function');
@@ -832,7 +817,12 @@ function* evalClass(node: A.Class, ctx: Context): Generator<StepEvent, JSValue> 
     : ({
         type: 'FunctionExpression',
         params: [],
-        body: { type: 'BlockStatement', body: [], start: node.start ?? 0, end: node.end ?? 0 } as A.BlockStatement,
+        body: {
+          type: 'BlockStatement',
+          body: [],
+          start: node.start ?? 0,
+          end: node.end ?? 0,
+        } as A.BlockStatement,
         async: false,
         generator: false,
         loc: node.loc ?? null,

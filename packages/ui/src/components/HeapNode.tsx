@@ -133,33 +133,36 @@ export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos }) {
           (no own props)
         </text>
       )}
-      {!isCollapsed && obj.kind === 'function' && obj.source?.capturedBindings && obj.source.capturedBindings.size > 0 && (
-        <>
-          <text
-            x={10}
-            y={headerHeight + padding + (Math.max(1, props_.length) + 1) * lineHeight - 4}
-            fontSize={9}
-            fontFamily="JetBrains Mono, monospace"
-            fill="var(--accent2)"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            [[Environment]]
-          </text>
-          {Array.from(obj.source.capturedBindings.entries()).map(([k, v], i) => (
+      {!isCollapsed &&
+        obj.kind === 'function' &&
+        obj.source?.capturedBindings &&
+        obj.source.capturedBindings.size > 0 && (
+          <>
             <text
-              key={`env-${k}`}
-              x={20}
-              y={headerHeight + padding + (Math.max(1, props_.length) + 2 + i) * lineHeight - 4}
-              fontSize={11}
+              x={10}
+              y={headerHeight + padding + (Math.max(1, props_.length) + 1) * lineHeight - 4}
+              fontSize={9}
               fontFamily="JetBrains Mono, monospace"
-              fill="var(--text)"
+              fill="var(--accent2)"
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
-              <tspan fill="var(--accent2)">{k}</tspan>: {renderValue(v)}
+              [[Environment]]
             </text>
-          ))}
-        </>
-      )}
+            {Array.from(obj.source.capturedBindings.entries()).map(([k, v], i) => (
+              <text
+                key={`env-${k}`}
+                x={20}
+                y={headerHeight + padding + (Math.max(1, props_.length) + 2 + i) * lineHeight - 4}
+                fontSize={11}
+                fontFamily="JetBrains Mono, monospace"
+                fill="var(--text)"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                <tspan fill="var(--accent2)">{k}</tspan>: {renderValue(v)}
+              </text>
+            ))}
+          </>
+        )}
     </g>
   );
 }

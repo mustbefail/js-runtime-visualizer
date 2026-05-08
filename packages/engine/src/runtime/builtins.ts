@@ -1,10 +1,4 @@
-import type {
-  IEnvironmentRecord,
-  IHeap,
-  JSValue,
-  NativeFn,
-  Reference,
-} from '../types';
+import type { IEnvironmentRecord, IHeap, JSValue, NativeFn, Reference } from '../types';
 
 function stringifyForConsole(v: JSValue): string {
   switch (v.kind) {
@@ -146,8 +140,6 @@ export function attachHostPrototypes(
 
 export function getHostPrototypes(
   heap: IHeap,
-):
-  | { objectProto: Reference; functionProto: Reference; arrayProto: Reference }
-  | null {
+): { objectProto: Reference; functionProto: Reference; arrayProto: Reference } | null {
   return hostProtoTable.get(heap) ?? null;
 }

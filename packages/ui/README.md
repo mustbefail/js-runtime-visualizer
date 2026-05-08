@@ -21,9 +21,15 @@ The web UI shell. Vite + React 18 + Reatom + CodeMirror 6.
 - Auto-arrange button (toolbar) resets positions to the default layout.
 - CodeMirror is now code-split into a lazy chunk to reduce the main bundle.
 
+## Plan 4 additions (prototypes + classes)
+
+- Engine: prototype-aware member lookup, `new`, `Object.create`, `__proto__`, `class`/`extends`/`super`, `this` binding, `Function.prototype.call`, hoisting (`var` and function declarations), logical/conditional/compound operators, named function expression self-reference.
+- Function HeapObjects now snapshot their captured bindings at allocation time — visible as the `[[Environment]]` block inside each function node.
+- Canvas: solid violet `[[Prototype]]` edges between heap objects.
+- Three new step-event kinds humanised in the snapshot pane: "Walked [[Prototype]] chain", "[[Prototype]] set", "this bound".
+
 ## Not yet (planned)
 
-- Prototype chain visualisation, `class`/`extends`, prototype pollution mode (plan 4).
 - Error traceback panel and animated unwinding (plan 5).
 - Async runtime panels (microtasks, macrotasks) — v2.
 
