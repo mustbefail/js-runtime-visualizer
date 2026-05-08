@@ -4,6 +4,7 @@ export type {
   RunOptions,
   Snapshot,
   FrameSnapshot,
+  SnapshotHighlights,
   StepEvent,
   EventKind,
   JSValue,
@@ -11,4 +12,5 @@ export type {
   Reference,
   HeapObject,
   SourceLoc,
+  BindingKind,
 } from './types';
