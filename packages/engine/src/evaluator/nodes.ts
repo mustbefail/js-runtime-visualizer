@@ -73,36 +73,50 @@ function* evalProgram(node: A.Program, ctx: Context): Generator<StepEvent, JSVal
 
 function* evalBinary(node: A.BinaryExpression, ctx: Context): Generator<StepEvent, JSValue> {
   const left = yield* evalNode(node.left, ctx);
+  if (ctx.drillIn) {
+    yield { kind: 'lookup', loc: locOf(node), payload: { phase: 'left-evaluated' } };
+  }
   const right = yield* evalNode(node.right, ctx);
-  switch (node.operator) {
+  if (ctx.drillIn) {
+    yield { kind: 'lookup', loc: locOf(node), payload: { phase: 'right-evaluated' } };
+  }
+  const result = computeBinary(node.operator, left, right);
+  if (ctx.drillIn) {
+    yield { kind: 'lookup', loc: locOf(node), payload: { phase: 'binary-result' } };
+  }
+  return result;
+}
+
+function computeBinary(op: string, left: JSValue, right: JSValue): JSValue {
+  switch (op) {
     case '+': {
       if (left.kind === 'string' || right.kind === 'string') {
         return { kind: 'string', value: stringify(left) + stringify(right) };
       }
-      return num(toNumber(left) + toNumber(right));
+      return { kind: 'number', value: toNumber(left) + toNumber(right) };
     }
     case '-':
-      return num(toNumber(left) - toNumber(right));
+      return { kind: 'number', value: toNumber(left) - toNumber(right) };
     case '*':
-      return num(toNumber(left) * toNumber(right));
+      return { kind: 'number', value: toNumber(left) * toNumber(right) };
     case '/':
-      return num(toNumber(left) / toNumber(right));
+      return { kind: 'number', value: toNumber(left) / toNumber(right) };
     case '%':
-      return num(toNumber(left) % toNumber(right));
+      return { kind: 'number', value: toNumber(left) % toNumber(right) };
     case '===':
-      return bool(strictEqual(left, right));
+      return { kind: 'boolean', value: strictEqual(left, right) };
     case '!==':
-      return bool(!strictEqual(left, right));
+      return { kind: 'boolean', value: !strictEqual(left, right) };
     case '<':
-      return bool(toNumber(left) < toNumber(right));
+      return { kind: 'boolean', value: toNumber(left) < toNumber(right) };
     case '>':
-      return bool(toNumber(left) > toNumber(right));
+      return { kind: 'boolean', value: toNumber(left) > toNumber(right) };
     case '<=':
-      return bool(toNumber(left) <= toNumber(right));
+      return { kind: 'boolean', value: toNumber(left) <= toNumber(right) };
     case '>=':
-      return bool(toNumber(left) >= toNumber(right));
+      return { kind: 'boolean', value: toNumber(left) >= toNumber(right) };
     default:
-      throw new Error(`Operator ${node.operator} not supported in plan 1`);
+      throw new Error(`Operator ${op} not supported in plan 1`);
   }
 }
 
