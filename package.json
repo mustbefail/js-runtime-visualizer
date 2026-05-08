@@ -10,7 +10,9 @@
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
     "ui:dev": "npm --workspace @js-runtime-visualizer/ui run dev",
-    "ui:build": "npm --workspace @js-runtime-visualizer/ui run build"
+    "ui:build": "npm --workspace @js-runtime-visualizer/ui run build",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
