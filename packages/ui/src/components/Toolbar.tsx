@@ -3,16 +3,24 @@ import { action } from '@reatom/core';
 import { drillInAtom } from '../atoms/session';
 import { runErrorAtom } from '../atoms/engine';
 import { runAction, resetAction, autoArrangeAction } from '../atoms/actions';
+import { showBuiltinsAtom } from '../atoms/canvas';
 
 const toggleDrillInAction = action(() => drillInAtom.set((prev) => !prev), 'toggleDrillInAction');
+
+const toggleBuiltinsAction = action(
+  () => showBuiltinsAtom.set((prev) => !prev),
+  'toggleBuiltinsAction',
+);
 
 export function Toolbar() {
   const [drillIn] = useAtom(drillInAtom);
   const [runError] = useAtom(runErrorAtom);
+  const [showBuiltins] = useAtom(showBuiltinsAtom);
   const onRun = useAction(runAction);
   const onReset = useAction(resetAction);
   const onAutoArrange = useAction(autoArrangeAction);
   const onToggleDrillIn = useAction(toggleDrillInAction);
+  const onToggleBuiltins = useAction(toggleBuiltinsAction);
 
   return (
     <div
@@ -32,6 +40,12 @@ export function Toolbar() {
       >
         <input type="checkbox" checked={drillIn} onChange={onToggleDrillIn} />
         drill-in
+      </label>
+      <label
+        style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)' }}
+      >
+        <input type="checkbox" checked={showBuiltins} onChange={onToggleBuiltins} />
+        show builtins
       </label>
       <button onClick={onRun}>Run</button>
       <button onClick={onReset}>Reset</button>

@@ -115,6 +115,10 @@ test('class extends — prototype edge points to parent.prototype, not Object.pr
   // Legend always shows [[Prototype]] entry.
   await expect(snapshotPane).toContainText(/\[\[Prototype\]\]/);
 
+  // Enable "show builtins" so that the full prototype chain is visible including
+  // A.prototype → Object.prototype (which terminates at a builtin node).
+  await page.getByLabel('show builtins').check();
+
   // Count proto edges — at least 3: B instance → B.prototype,
   // B.prototype → A.prototype, A.prototype → Object.prototype.
   // Proto edges use marker-end="url(#arrowhead-proto)".

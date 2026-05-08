@@ -1,6 +1,5 @@
 import { useAtom } from '@reatom/react';
 import { dragStateAtom } from '../atoms/canvas';
-import { nodePositionsAtom } from '../atoms/session';
 import type { DragState, NodePositions, Pos, RefEdge } from '../types';
 
 const FRAME_W = 260;
@@ -16,27 +15,28 @@ function rightAnchor(kind: 'frame' | 'heap', pos: Pos): Pos {
 }
 
 function leftAnchor(pos: Pos): Pos {
-  // Targets are always heap nodes for ref edges; left anchor is at x.
   return { x: pos.x, y: pos.y + NODE_HEADER_H + 6 };
 }
 
-function getPos(id: string, positions: NodePositions, drag: DragState): Pos | null {
+function getPos(
+  id: string,
+  positions: NodePositions,
+  drag: DragState,
+): Pos | null {
   if (drag.active && drag.id === id) return drag.pos;
   return positions.get(id) ?? null;
 }
 
-export function EdgesLayer(props: { edges: RefEdge[] }) {
-  const [positions] = useAtom(nodePositionsAtom);
+export function EdgesLayer(props: { edges: RefEdge[]; positions: NodePositions }) {
   const [drag] = useAtom(dragStateAtom);
   return (
     <g>
       {props.edges.map((e, i) => {
-        const fromPos = getPos(e.fromId, positions, drag);
-        const toPos = getPos(e.toId, positions, drag);
+        const fromPos = getPos(e.fromId, props.positions, drag);
+        const toPos = getPos(e.toId, props.positions, drag);
         if (!fromPos || !toPos) return null;
         const start = rightAnchor(e.fromKind, fromPos);
         const end = leftAnchor(toPos);
-        // Curved bezier-ish path: simple cubic with horizontal control points.
         const dx = Math.max(40, (end.x - start.x) / 2);
         const c1 = { x: start.x + dx, y: start.y };
         const c2 = { x: end.x - dx, y: end.y };

@@ -22,6 +22,7 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
     kind: 'object',
     ownProps: new Map(),
     prototype: null,
+    builtin: true,
   });
 
   // 2. Function.prototype — extends Object.prototype.
@@ -29,6 +30,7 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
     kind: 'object',
     ownProps: new Map(),
     prototype: objectProto,
+    builtin: true,
   });
 
   // 3. Array.prototype — extends Object.prototype.
@@ -36,6 +38,7 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
     kind: 'object',
     ownProps: new Map(),
     prototype: objectProto,
+    builtin: true,
   });
 
   // 4. Object.create(proto) → new object with [[Prototype]] = proto.
@@ -52,6 +55,7 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
     ownProps: new Map(),
     prototype: functionProto,
     native: objectCreate,
+    builtin: true,
   });
 
   // 5. Object.getPrototypeOf(obj) → ref or null.
@@ -69,6 +73,7 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
     ownProps: new Map(),
     prototype: functionProto,
     native: objectGetPrototypeOf,
+    builtin: true,
   });
 
   // 6. Object constructor — exposes .create, .getPrototypeOf, .prototype as own props.
@@ -80,6 +85,7 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
       ['prototype', objectProto],
     ]),
     prototype: functionProto,
+    builtin: true,
   });
 
   // 7. Function.prototype.call — placeholder. The evaluator intercepts CallExpression
@@ -97,6 +103,7 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
     ]),
     prototype: functionProto,
     native: fnCall,
+    builtin: true,
   });
   // Attach call as an own prop on the already-allocated functionProto.
   const functionProtoObj = heap.get(functionProto.id)!;
@@ -111,11 +118,13 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
       ctx.consoleOut.push(args.map(stringifyForConsole).join(' '));
       return { kind: 'undefined' };
     },
+    builtin: true,
   });
   const consoleObj = heap.allocate({
     kind: 'object',
     ownProps: new Map<string, JSValue>([['log', log]]),
     prototype: objectProto,
+    builtin: true,
   });
 
   // 9. Define globals.

@@ -44,6 +44,7 @@ export type HeapObject = {
   closure?: IEnvironmentRecord;
   source?: FunctionSource;
   native?: NativeFn;
+  builtin?: boolean;
 };
 
 export interface IHeap {
