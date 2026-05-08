@@ -31,4 +31,15 @@ describe('evaluator — functions', () => {
     expect(kinds.filter((k) => k === 'enter-frame')).toHaveLength(2); // global + f
     expect(kinds.filter((k) => k === 'leave-frame')).toHaveLength(1);
   });
+
+  it('named function expression binds its own name inside its body', () => {
+    const { finalValue } = runCode(`
+      const f = function inner(n) {
+        if (n <= 1) return 1;
+        return n * inner(n - 1);
+      };
+      f(4);
+    `);
+    expect(finalValue).toEqual({ kind: 'number', value: 24 });
+  });
 });

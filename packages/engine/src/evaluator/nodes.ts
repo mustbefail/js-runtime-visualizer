@@ -1,9 +1,10 @@
 import type * as A from 'acorn';
 import { type JSValue, num, bool } from '../types';
-import type { FunctionSource, Reference, StepEvent } from '../types';
+import type { Reference, StepEvent } from '../types';
 import type { Context } from '../types';
 import { fromJsLiteral, toBoolean, toNumber } from './values';
 import { EnvironmentRecord } from '../runtime/env';
+import type { IEnvironmentRecord } from '../types';
 
 export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSValue> {
   switch (node.type) {
@@ -60,6 +61,12 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return yield* evalMember(node as A.MemberExpression, ctx);
     case 'LogicalExpression':
       return yield* evalLogical(node as A.LogicalExpression, ctx);
+    case 'ConditionalExpression': {
+      const cond = yield* evalNode((node as A.ConditionalExpression).test, ctx);
+      return toBoolean(cond)
+        ? yield* evalNode((node as A.ConditionalExpression).consequent, ctx)
+        : yield* evalNode((node as A.ConditionalExpression).alternate, ctx);
+    }
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -190,28 +197,56 @@ function* evalVarDecl(node: A.VariableDeclaration, ctx: Context): Generator<Step
   return { kind: 'undefined' };
 }
 
-function* evalAssign(node: A.AssignmentExpression, ctx: Context): Generator<StepEvent, JSValue> {
-  if (node.operator !== '=') {
-    throw new Error(`Compound assignment ${node.operator} not yet supported`);
-  }
-  const value = yield* evalNode(node.right, ctx);
+function* evalAssign(
+  node: A.AssignmentExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const op = node.operator;
+
+  // Compute the new value from current+rhs given the op. For `=`, ignores `current`
+  // and just evaluates rhs. For arithmetic compound ops, evaluates rhs then
+  // computeBinary. For &&=/||=/??=, applies short-circuit semantics.
+  const computeCompound = function* (current: JSValue): Generator<StepEvent, JSValue> {
+    if (op === '=') return yield* evalNode(node.right, ctx);
+    if (op === '&&=') return toBoolean(current) ? yield* evalNode(node.right, ctx) : current;
+    if (op === '||=') return toBoolean(current) ? current : yield* evalNode(node.right, ctx);
+    if (op === '??=') {
+      return current.kind === 'null' || current.kind === 'undefined'
+        ? yield* evalNode(node.right, ctx)
+        : current;
+    }
+    const rhs = yield* evalNode(node.right, ctx);
+    const arithmeticOp = op.slice(0, -1); // "+=" → "+"
+    return computeBinary(arithmeticOp, current, rhs);
+  };
+
   if (node.left.type === 'Identifier') {
     const top = ctx.stack.top();
     if (!top) throw new Error('Internal: no active frame for assignment');
-    top.env.assign(node.left.name, value);
-    yield { kind: 'assign', loc: locOf(node), payload: { name: node.left.name } };
+    const env = top.env;
+    const current = op === '=' ? { kind: 'undefined' as const } : env.lookup(node.left.name);
+    const value = yield* computeCompound(current);
+    env.assign(node.left.name, value);
+    yield { kind: 'assign', loc: locOf(node), payload: { name: node.left.name, op } };
     return value;
   }
+
   if (node.left.type === 'MemberExpression') {
     const objVal = yield* evalNode(node.left.object as A.Node, ctx);
     if (objVal.kind !== 'ref') {
       throw new Error('TypeError: assignment target is primitive');
     }
     const key = yield* memberKey(node.left, ctx);
+    const heapObj = ctx.heap.get(objVal.id);
+    if (!heapObj) throw new Error('Internal: ref points to no heap object');
+    const current =
+      op === '=' ? { kind: 'undefined' as const } : (heapObj.ownProps.get(key) ?? { kind: 'undefined' as const });
+    const value = yield* computeCompound(current);
     ctx.heap.setProp(objVal.id, key, value);
-    yield { kind: 'mutate', loc: locOf(node), payload: { id: objVal.id, key } };
+    yield { kind: 'mutate', loc: locOf(node), payload: { id: objVal.id, key, op } };
     return value;
   }
+
   throw new Error(`AssignmentExpression: unsupported target ${node.left.type}`);
 }
 
@@ -277,22 +312,34 @@ function makeFunctionRef(
 ): Reference {
   const top = ctx.stack.top();
   if (!top) throw new Error('Internal: no active frame for function definition');
-  const env = top.env;
+  let closureEnv: IEnvironmentRecord = top.env;
+  // Named function expression: introduce a binding scope so the function
+  // body can reference itself by its declared name.
+  let selfBindingName: string | undefined;
+  if (node.type === 'FunctionExpression' && 'id' in node && node.id) {
+    selfBindingName = node.id.name;
+    closureEnv = new EnvironmentRecord(closureEnv);
+  }
   const params = (node.params as A.Identifier[]).map((p) => p.name);
-  const declName = 'id' in node && node.id ? node.id.name : undefined;
-  const source: FunctionSource = {
-    params,
-    body: node.body as A.Node,
-    isArrow,
-    ...(declName !== undefined ? { name: declName } : {}),
-  };
+  const declName =
+    node.type === 'FunctionDeclaration' && node.id
+      ? node.id.name
+      : selfBindingName;
   const ref = ctx.heap.allocate({
     kind: 'function',
     ownProps: new Map(),
     prototype: null,
-    closure: env,
-    source,
+    closure: closureEnv,
+    source: {
+      ...(declName !== undefined ? { name: declName } : {}),
+      params,
+      body: node.body as A.Node,
+      isArrow,
+    },
   });
+  if (selfBindingName) {
+    closureEnv.define(selfBindingName, ref, 'const');
+  }
   return ref;
 }
 
