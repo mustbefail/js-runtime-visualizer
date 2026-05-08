@@ -6,6 +6,8 @@
 
 **Architecture:** Pure TypeScript, no DOM. Acorn for parsing. Custom runtime model (Heap, EnvironmentRecord, Frame). Evaluator is a generator that yields a `StepEvent` per significant evaluation step. Outer runner pumps the generator, captures Immer-frozen snapshots into a `SnapshotStore`. Single public entry point `runCode(code, options): Snapshot[]`.
 
+**Type organization (convention update 2026-05-08):** All type-level contracts for the engine — data shapes (`JSValue`, `HeapObject`, `Frame`, `Snapshot`, `StepEvent`, `ParseResult`, `RunOptions`, `RunResult`, `Context`, `NativeCtx`, `BindingKind`, `EventKind`, `SourceLoc`, `FrameSnapshot`, `CaptureInput`) and `I`-prefix interfaces describing class APIs (`IHeap`, `IEnvironmentRecord`, `ICallStack`, `ISnapshotStore`) — live in **one file**: `packages/engine/src/types.ts`. Class files (`heap.ts`, `env.ts`, `frames.ts`, `snapshot.ts`) keep only their implementation and add `implements I…` to bind to the contract. This file acts as a single-glance reference for the engine's public and internal contracts. Where the original tasks below reference `runtime/model.ts` or `events.ts`, those files are replaced by `types.ts`. Imports of `from '../runtime/model'` or `from '../events'` shown in any later task should be read as `from '../types'` (relative path adjusted as needed). `parser.ts` (already shipped in Task 2) gets a follow-up edit in Task 3 to import `ParseResult` from `../types`.
+
 **Tech Stack:** Node 20+, TypeScript, Vitest, Acorn, Immer, ESLint, Prettier.
 
 **Reference spec:** [`docs/superpowers/specs/2026-05-08-js-execution-visualizer-design.md`](../specs/2026-05-08-js-execution-visualizer-design.md)
@@ -27,19 +29,18 @@ js-runtime-visualizer/
 │       ├── tsconfig.json
 │       ├── src/
 │       │   ├── index.ts                  ← public API
+│       │   ├── types.ts                  ← ALL type contracts (single source)
 │       │   ├── parser.ts                 ← Acorn wrapper
-│       │   ├── events.ts                 ← StepEvent type
 │       │   ├── runtime/
-│       │   │   ├── model.ts              ← JSValue, HeapObject types
-│       │   │   ├── heap.ts               ← allocate / get / set
-│       │   │   ├── env.ts                ← EnvironmentRecord
-│       │   │   ├── frames.ts             ← Frame, CallStack
-│       │   │   └── builtins.ts           ← console, global env seeding
+│       │   │   ├── heap.ts               ← class Heap implements IHeap
+│       │   │   ├── env.ts                ← class EnvironmentRecord implements IEnvironmentRecord
+│       │   │   ├── frames.ts             ← class CallStack implements ICallStack
+│       │   │   └── builtins.ts           ← seedBuiltins(heap, globalEnv)
 │       │   ├── evaluator/
 │       │   │   ├── index.ts              ← evaluator entry, runner
 │       │   │   ├── nodes.ts              ← per-node eval functions
 │       │   │   └── values.ts             ← Primitive helpers, ToBoolean, ToString
-│       │   └── snapshot.ts               ← SnapshotStore, Immer wrapping
+│       │   └── snapshot.ts               ← class SnapshotStore implements ISnapshotStore
 │       └── tests/
 │           ├── parser.test.ts
 │           ├── heap.test.ts
@@ -337,14 +338,15 @@ git commit -m "feat(engine): parser wrapper around acorn with structured errors"
 
 ---
 
-## Task 3: Heap module
+## Task 3: Central types.ts + Heap module
 
 **Files:**
-- Create: `packages/engine/src/runtime/model.ts`
-- Create: `packages/engine/src/runtime/heap.ts`
+- Create: `packages/engine/src/types.ts` — central contracts file (all interfaces + type aliases for the engine)
+- Create: `packages/engine/src/runtime/heap.ts` — class `Heap implements IHeap`
+- Modify: `packages/engine/src/parser.ts` — import `ParseResult` from `../types` instead of declaring it locally
 - Create: `packages/engine/tests/heap.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **Step 1: Write failing test for Heap**
 
 Create `packages/engine/tests/heap.test.ts`:
 
@@ -369,8 +371,8 @@ describe('Heap', () => {
   it('mutates own props through update', () => {
     const heap = new Heap();
     const ref = heap.allocate({ kind: 'object', ownProps: new Map(), prototype: null });
-    heap.setProp(ref.id, 'name', 'Rex');
-    expect(heap.get(ref.id)?.ownProps.get('name')).toBe('Rex');
+    heap.setProp(ref.id, 'name', { kind: 'string', value: 'Rex' });
+    expect(heap.get(ref.id)?.ownProps.get('name')).toEqual({ kind: 'string', value: 'Rex' });
   });
 
   it('iterates all live objects', () => {
@@ -384,11 +386,25 @@ describe('Heap', () => {
 });
 ```
 
-- [ ] **Step 2: Define types**
+- [ ] **Step 2: Run tests — expect failure**
 
-Create `packages/engine/src/runtime/model.ts`:
+```bash
+npx vitest --run packages/engine/tests/heap.test.ts
+```
+
+Expected: FAIL with "Cannot find module '../src/runtime/heap'".
+
+- [ ] **Step 3: Create central types.ts**
+
+Create `packages/engine/src/types.ts`. This file is the **single source of truth** for engine type contracts. It contains every type and interface other engine files will use, including `I`-prefix interfaces for class APIs. Class implementations import from this file and declare `implements I…`.
 
 ```ts
+import type { Node as AstNode, Program } from 'acorn';
+
+// =============================================================================
+// Primitive values and references
+// =============================================================================
+
 export type Primitive =
   | { kind: 'undefined' }
   | { kind: 'null' }
@@ -402,16 +418,165 @@ export type JSValue = Primitive | Reference;
 
 export type SourceLoc = { line: number; col: number };
 
+// =============================================================================
+// Heap and runtime objects
+// =============================================================================
+
+export type FunctionSource = {
+  name?: string;
+  params: string[];
+  body: AstNode;
+  isArrow: boolean;
+};
+
+export type NativeCtx = {
+  consoleOut: string[];
+};
+
+export type NativeFn = (args: JSValue[], ctx: NativeCtx) => JSValue;
+
 export type HeapObject = {
   kind: 'object' | 'array' | 'function';
   ownProps: Map<string, JSValue>;
   prototype: Reference | null;
   // function-only:
-  closure?: import('./env').EnvironmentRecord;
-  source?: { name?: string; params: string[]; bodyAstId: string };
+  closure?: IEnvironmentRecord;
+  source?: FunctionSource;
+  native?: NativeFn;
 };
 
-// Constructors for common JSValues
+export interface IHeap {
+  allocate(obj: HeapObject): Reference;
+  get(id: string): HeapObject | undefined;
+  setProp(id: string, key: string, value: JSValue): void;
+  size(): number;
+  entries(): IterableIterator<[string, HeapObject]>;
+  snapshot(): Map<string, HeapObject>;
+}
+
+// =============================================================================
+// Environment records and frames
+// =============================================================================
+
+export type BindingKind = 'let' | 'const' | 'var';
+
+export interface IEnvironmentRecord {
+  outer: IEnvironmentRecord | null;
+  define(name: string, value: JSValue, kind: BindingKind): void;
+  lookup(name: string): JSValue;
+  has(name: string): boolean;
+  assign(name: string, value: JSValue): void;
+  snapshotBindings(): Map<string, JSValue>;
+}
+
+export type Frame = {
+  fn: Reference | 'global';
+  fnName: string;
+  env: IEnvironmentRecord;
+  callSite: SourceLoc | null;
+};
+
+export interface ICallStack {
+  push(frame: Frame): void;
+  pop(): Frame | undefined;
+  top(): Frame | undefined;
+  size(): number;
+  snapshot(): Frame[];
+}
+
+// =============================================================================
+// Step events
+// =============================================================================
+
+export type EventKind =
+  | 'enter-frame'
+  | 'leave-frame'
+  | 'assign'
+  | 'allocate'
+  | 'lookup'
+  | 'mutate'
+  | 'console';
+
+export type StepEvent = {
+  kind: EventKind;
+  loc: SourceLoc;
+  payload?: Record<string, unknown>;
+};
+
+// =============================================================================
+// Snapshots
+// =============================================================================
+
+export type FrameSnapshot = {
+  fnName: string;
+  callSite: SourceLoc | null;
+  bindings: Map<string, JSValue>;
+};
+
+export type SnapshotHighlights = {
+  lookupPath?: string[];
+  changedIds?: string[];
+  activeFrame?: number;
+};
+
+export type Snapshot = {
+  step: number;
+  loc: SourceLoc;
+  eventKind: EventKind;
+  callStack: FrameSnapshot[];
+  heap: Map<string, HeapObject>;
+  consoleOut: string[];
+  highlights: SnapshotHighlights;
+};
+
+export type CaptureInput = {
+  eventKind: EventKind;
+  loc: SourceLoc;
+  heap: IHeap;
+  stack: ICallStack;
+  consoleOut: string[];
+  highlights: SnapshotHighlights;
+};
+
+export interface ISnapshotStore {
+  capture(input: CaptureInput): void;
+  length(): number;
+  at(i: number): Snapshot;
+  all(): Snapshot[];
+}
+
+// =============================================================================
+// Parser
+// =============================================================================
+
+export type ParseResult =
+  | { ok: true; ast: Program }
+  | { ok: false; error: { message: string; line: number; col: number } };
+
+// =============================================================================
+// Evaluator
+// =============================================================================
+
+export type Context = {
+  heap: IHeap;
+  stack: ICallStack;
+  globalEnv: IEnvironmentRecord;
+  consoleOut: string[];
+  drillIn: boolean;
+};
+
+export type RunOptions = { drillIn?: boolean };
+
+export type RunResult = {
+  snapshots: Snapshot[];
+  finalValue: JSValue;
+};
+
+// =============================================================================
+// Primitive value constructors (small runtime helpers, kept here so callers
+// import value types and constructors from one place)
+// =============================================================================
+
 export const u = (): Primitive => ({ kind: 'undefined' });
 export const nul = (): Primitive => ({ kind: 'null' });
 export const num = (n: number): Primitive => ({ kind: 'number', value: n });
@@ -419,17 +584,17 @@ export const str = (s: string): Primitive => ({ kind: 'string', value: s });
 export const bool = (b: boolean): Primitive => ({ kind: 'boolean', value: b });
 ```
 
-- [ ] **Step 3: Implement Heap**
+- [ ] **Step 4: Implement Heap**
 
 Create `packages/engine/src/runtime/heap.ts`:
 
 ```ts
-import type { HeapObject, JSValue, Reference } from './model';
+import type { HeapObject, IHeap, JSValue, Reference } from '../types';
 
 let nextId = 1;
 const freshId = () => `obj${nextId++}`;
 
-export class Heap {
+export class Heap implements IHeap {
   private store = new Map<string, HeapObject>();
 
   allocate(obj: HeapObject): Reference {
@@ -456,7 +621,7 @@ export class Heap {
     return this.store.entries();
   }
 
-  // Used by snapshot module to clone. Returns a new Map with shallow object copies.
+  // Used by SnapshotStore to clone. Returns a new Map with shallow object copies.
   snapshot(): Map<string, HeapObject> {
     const out = new Map<string, HeapObject>();
     for (const [id, obj] of this.store) {
@@ -470,19 +635,61 @@ export class Heap {
 }
 ```
 
-- [ ] **Step 4: Run tests — expect pass**
+- [ ] **Step 5: Re-wire parser.ts to import ParseResult from types.ts**
 
-```bash
-npx vitest --run packages/engine/tests/heap.test.ts
+Edit `packages/engine/src/parser.ts` so it imports `ParseResult` from `../types` instead of declaring it locally. The new file content is:
+
+```ts
+import * as acorn from 'acorn';
+import type { Program } from 'acorn';
+import type { ParseResult } from './types';
+
+export type { ParseResult };
+
+export function parse(code: string): ParseResult {
+  try {
+    const ast = acorn.parse(code, {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      locations: true,
+    }) as Program;
+    return { ok: true, ast };
+  } catch (e: unknown) {
+    if (e instanceof SyntaxError && 'loc' in e) {
+      const loc = (e as SyntaxError & { loc: { line: number; column: number } }).loc;
+      return {
+        ok: false,
+        error: { message: e.message, line: loc.line, col: loc.column },
+      };
+    }
+    throw e;
+  }
+}
 ```
 
-Expected: 4 tests pass.
+The `export type { ParseResult }` line keeps `ParseResult` re-exported from `parser.ts` for any caller that imports it from there, while the canonical declaration lives in `types.ts`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Run tests — expect pass**
 
 ```bash
-git add packages/engine/src/runtime/model.ts packages/engine/src/runtime/heap.ts packages/engine/tests/heap.test.ts
-git commit -m "feat(engine): heap module with allocate/get/setProp"
+npx vitest --run packages/engine/tests/heap.test.ts packages/engine/tests/parser.test.ts
+```
+
+Expected: heap suite 4/4 pass, parser suite still 3/3 pass (no regression from the parser.ts edit).
+
+- [ ] **Step 7: TypeScript check**
+
+```bash
+npx tsc --noEmit -p packages/engine
+```
+
+Expected: silent (zero errors).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add packages/engine/src/types.ts packages/engine/src/runtime/heap.ts packages/engine/src/parser.ts packages/engine/tests/heap.test.ts
+git commit -m "feat(engine): central types.ts + Heap implementing IHeap"
 ```
 
 ---
@@ -490,9 +697,11 @@ git commit -m "feat(engine): heap module with allocate/get/setProp"
 ## Task 4: EnvironmentRecord and Frames
 
 **Files:**
-- Create: `packages/engine/src/runtime/env.ts`
-- Create: `packages/engine/src/runtime/frames.ts`
+- Create: `packages/engine/src/runtime/env.ts` — `class EnvironmentRecord implements IEnvironmentRecord`
+- Create: `packages/engine/src/runtime/frames.ts` — `class CallStack implements ICallStack`
 - Create: `packages/engine/tests/env.test.ts`
+
+All types (`IEnvironmentRecord`, `ICallStack`, `Frame`, `BindingKind`, `JSValue`, `u`, `num`, …) are imported from `../types`. Do NOT redeclare them in `env.ts` or `frames.ts`.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -501,7 +710,7 @@ Create `packages/engine/tests/env.test.ts`:
 ```ts
 import { describe, it, expect } from 'vitest';
 import { EnvironmentRecord } from '../src/runtime/env';
-import { num, u } from '../src/runtime/model';
+import { num, u } from '../src/types';
 
 describe('EnvironmentRecord', () => {
   it('defines and reads a binding in the current scope', () => {
@@ -549,15 +758,13 @@ describe('EnvironmentRecord', () => {
 Create `packages/engine/src/runtime/env.ts`:
 
 ```ts
-import { type JSValue, u } from './model';
-
-export type BindingKind = 'let' | 'const' | 'var';
+import { type BindingKind, type IEnvironmentRecord, type JSValue, u } from '../types';
 
 type Binding = { value: JSValue; kind: BindingKind };
 
-export class EnvironmentRecord {
+export class EnvironmentRecord implements IEnvironmentRecord {
   private bindings = new Map<string, Binding>();
-  constructor(public outer: EnvironmentRecord | null) {}
+  constructor(public outer: IEnvironmentRecord | null) {}
 
   define(name: string, value: JSValue, kind: BindingKind): void {
     if (this.bindings.has(name)) {
@@ -603,22 +810,14 @@ export class EnvironmentRecord {
 }
 ```
 
-- [ ] **Step 3: Implement Frame type**
+- [ ] **Step 3: Implement CallStack**
 
-Create `packages/engine/src/runtime/frames.ts`:
+Create `packages/engine/src/runtime/frames.ts`. `Frame` and `ICallStack` come from `../types` — do NOT redeclare them locally.
 
 ```ts
-import type { EnvironmentRecord } from './env';
-import type { Reference, SourceLoc } from './model';
+import type { Frame, ICallStack } from '../types';
 
-export type Frame = {
-  fn: Reference | 'global';
-  fnName: string;
-  env: EnvironmentRecord;
-  callSite: SourceLoc | null;
-};
-
-export class CallStack {
+export class CallStack implements ICallStack {
   private frames: Frame[] = [];
 
   push(frame: Frame): void {
@@ -661,11 +860,12 @@ git commit -m "feat(engine): EnvironmentRecord with let/const/var + CallStack"
 
 ---
 
-## Task 5: SnapshotStore + StepEvent
+## Task 5: SnapshotStore
+
+`StepEvent`, `EventKind`, `Snapshot`, `FrameSnapshot`, `CaptureInput`, and `ISnapshotStore` already live in `types.ts` (added in Task 3). This task only creates the implementation file and its test — no separate `events.ts` is created.
 
 **Files:**
-- Create: `packages/engine/src/events.ts`
-- Create: `packages/engine/src/snapshot.ts`
+- Create: `packages/engine/src/snapshot.ts` — `class SnapshotStore implements ISnapshotStore`
 - Create: `packages/engine/tests/snapshot.test.ts`
 
 - [ ] **Step 1: Write failing tests**
@@ -677,7 +877,7 @@ import { describe, it, expect } from 'vitest';
 import { Heap } from '../src/runtime/heap';
 import { CallStack } from '../src/runtime/frames';
 import { EnvironmentRecord } from '../src/runtime/env';
-import { num } from '../src/runtime/model';
+import { num } from '../src/types';
 import { SnapshotStore } from '../src/snapshot';
 
 describe('SnapshotStore', () => {
@@ -744,66 +944,20 @@ describe('SnapshotStore', () => {
 });
 ```
 
-- [ ] **Step 2: Implement events**
+- [ ] **Step 2: Implement SnapshotStore**
 
-Create `packages/engine/src/events.ts`:
-
-```ts
-import type { SourceLoc } from './runtime/model';
-
-export type EventKind =
-  | 'enter-frame'
-  | 'leave-frame'
-  | 'assign'
-  | 'allocate'
-  | 'lookup'
-  | 'mutate'
-  | 'console';
-
-export type StepEvent = {
-  kind: EventKind;
-  loc: SourceLoc;
-  payload?: Record<string, unknown>;
-};
-```
-
-- [ ] **Step 3: Implement SnapshotStore**
-
-Create `packages/engine/src/snapshot.ts`:
+Create `packages/engine/src/snapshot.ts`. All types come from `../types` — no local declarations:
 
 ```ts
 import { produce, freeze } from 'immer';
-import type { EventKind } from './events';
-import type { Heap } from './runtime/heap';
-import type { CallStack } from './runtime/frames';
-import type { HeapObject, SourceLoc, JSValue } from './runtime/model';
+import type {
+  CaptureInput,
+  FrameSnapshot,
+  ISnapshotStore,
+  Snapshot,
+} from './types';
 
-export type FrameSnapshot = {
-  fnName: string;
-  callSite: SourceLoc | null;
-  bindings: Map<string, JSValue>;
-};
-
-export type Snapshot = {
-  step: number;
-  loc: SourceLoc;
-  eventKind: EventKind;
-  callStack: FrameSnapshot[];
-  heap: Map<string, HeapObject>;
-  consoleOut: string[];
-  highlights: { lookupPath?: string[]; changedIds?: string[]; activeFrame?: number };
-};
-
-export type CaptureInput = {
-  eventKind: EventKind;
-  loc: SourceLoc;
-  heap: Heap;
-  stack: CallStack;
-  consoleOut: string[];
-  highlights: Snapshot['highlights'];
-};
-
-export class SnapshotStore {
+export class SnapshotStore implements ISnapshotStore {
   private snaps: Snapshot[] = [];
 
   capture(input: CaptureInput): void {
@@ -847,7 +1001,7 @@ export class SnapshotStore {
 }
 ```
 
-- [ ] **Step 4: Run tests — expect pass**
+- [ ] **Step 3: Run tests — expect pass**
 
 ```bash
 npx vitest --run packages/engine/tests/snapshot.test.ts
@@ -855,11 +1009,11 @@ npx vitest --run packages/engine/tests/snapshot.test.ts
 
 Expected: 3 tests pass.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add packages/engine/src/events.ts packages/engine/src/snapshot.ts packages/engine/tests/snapshot.test.ts
-git commit -m "feat(engine): SnapshotStore with Immer-frozen snapshots"
+git add packages/engine/src/snapshot.ts packages/engine/tests/snapshot.test.ts
+git commit -m "feat(engine): SnapshotStore implementing ISnapshotStore"
 ```
 
 ---
@@ -925,7 +1079,7 @@ describe('evaluator — literals and arithmetic', () => {
 Create `packages/engine/src/evaluator/values.ts`:
 
 ```ts
-import { type JSValue, type Primitive, num, str, bool, u, nul } from '../runtime/model';
+import { type JSValue, type Primitive, num, str, bool, u, nul } from '../types';
 
 export function fromJsLiteral(v: unknown): Primitive {
   if (v === null) return nul();
@@ -980,10 +1134,10 @@ Create `packages/engine/src/evaluator/nodes.ts`:
 
 ```ts
 import type * as A from 'acorn';
-import { type JSValue, num, bool } from '../runtime/model';
+import { type JSValue, num, bool } from '../types';
 import { fromJsLiteral, toBoolean, toNumber } from './values';
 import type { Context } from './index';
-import type { StepEvent } from '../events';
+import type { StepEvent } from '../types';
 
 export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSValue> {
   switch (node.type) {
@@ -1118,8 +1272,8 @@ import { Heap } from '../runtime/heap';
 import { CallStack } from '../runtime/frames';
 import { EnvironmentRecord } from '../runtime/env';
 import { SnapshotStore, type Snapshot } from '../snapshot';
-import type { JSValue, SourceLoc } from '../runtime/model';
-import type { StepEvent } from '../events';
+import type { JSValue, SourceLoc } from '../types';
+import type { StepEvent } from '../types';
 import { evalNode } from './nodes';
 
 export type Context = {
@@ -1454,24 +1608,25 @@ git commit -m "feat(engine): if / while / for / block statements"
 
 **Files:**
 - Modify: `packages/engine/src/evaluator/nodes.ts`
-- Modify: `packages/engine/src/runtime/model.ts` (function source includes body AST node directly)
 - Create: `packages/engine/tests/evaluator/functions.test.ts`
 - Create: `packages/engine/tests/evaluator/closures.test.ts`
 
-- [ ] **Step 1: Adjust HeapObject to store function body as AST node**
+`FunctionSource` (with `body: AstNode`, `isArrow`, `params`, optional `name`) is already part of `types.ts` from Task 3 — no edit to `types.ts` is needed for this task.
 
-In `packages/engine/src/runtime/model.ts`, replace `source?: { name?: string; params: string[]; bodyAstId: string };` with:
+- [ ] **Step 1: (no-op) Confirm FunctionSource shape**
+
+Open `packages/engine/src/types.ts` and confirm the type already includes:
 
 ```ts
-  source?: {
-    name?: string;
-    params: string[];
-    body: import('acorn').Node;
-    isArrow: boolean;
-  };
+export type FunctionSource = {
+  name?: string;
+  params: string[];
+  body: AstNode;
+  isArrow: boolean;
+};
 ```
 
-This avoids inventing a separate AST id system — we hold AST nodes by reference.
+If the field is present (it is, per Task 3), proceed to Step 2.
 
 - [ ] **Step 2: Write failing tests**
 
@@ -1572,7 +1727,7 @@ Add cases to `evalNode` switch:
 Add helpers below:
 
 ```ts
-import type { Reference } from '../runtime/model';
+import type { Reference } from '../types';
 
 class ReturnSignal {
   constructor(public value: JSValue) {}
@@ -1689,7 +1844,7 @@ Expected: 5 + 2 = 7 tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/engine/src/runtime/model.ts packages/engine/src/evaluator/nodes.ts packages/engine/tests/evaluator/functions.test.ts packages/engine/tests/evaluator/closures.test.ts
+git add packages/engine/src/evaluator/nodes.ts packages/engine/tests/evaluator/functions.test.ts packages/engine/tests/evaluator/closures.test.ts
 git commit -m "feat(engine): functions, closures, return, prefix/postfix update"
 ```
 
@@ -1877,37 +2032,16 @@ git commit -m "feat(engine): object and array literals, member access, member as
 - Create: `packages/engine/src/runtime/builtins.ts`
 - Modify: `packages/engine/src/evaluator/index.ts` (seed builtins into globalEnv)
 - Modify: `packages/engine/src/evaluator/nodes.ts` (CallExpression dispatches to native builtins)
-- Modify: `packages/engine/src/runtime/model.ts` (HeapObject can mark itself as native)
 - Create: `packages/engine/tests/evaluator/console.test.ts`
 
-- [ ] **Step 1: Mark native functions in HeapObject**
+`HeapObject.native?` and `NativeCtx` are already part of `types.ts` from Task 3 — no edit to `types.ts` is needed for this task.
 
-In `packages/engine/src/runtime/model.ts`, extend `HeapObject`:
+- [ ] **Step 1: Implement builtins**
 
-```ts
-export type HeapObject = {
-  kind: 'object' | 'array' | 'function';
-  ownProps: Map<string, JSValue>;
-  prototype: Reference | null;
-  closure?: import('./env').EnvironmentRecord;
-  source?: { name?: string; params: string[]; body: import('acorn').Node; isArrow: boolean };
-  native?: (args: JSValue[], ctx: NativeCtx) => JSValue;
-};
-
-export type NativeCtx = {
-  consoleOut: string[];
-};
-```
-
-- [ ] **Step 2: Implement builtins**
-
-Create `packages/engine/src/runtime/builtins.ts`:
+Create `packages/engine/src/runtime/builtins.ts`. Imports come from `../types` (interfaces) and the local class files only when a class instance is actually consumed.
 
 ```ts
-import type { JSValue } from './model';
-import type { NativeCtx } from './model';
-import type { Heap } from './heap';
-import type { EnvironmentRecord } from './env';
+import type { IEnvironmentRecord, IHeap, JSValue } from '../types';
 
 function stringifyForConsole(v: JSValue): string {
   switch (v.kind) {
@@ -1925,7 +2059,7 @@ function stringifyForConsole(v: JSValue): string {
   }
 }
 
-export function seedBuiltins(heap: Heap, globalEnv: EnvironmentRecord): void {
+export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
   const log = heap.allocate({
     kind: 'function',
     ownProps: new Map(),
@@ -1946,7 +2080,7 @@ export function seedBuiltins(heap: Heap, globalEnv: EnvironmentRecord): void {
 }
 ```
 
-- [ ] **Step 3: Wire seeding in runner**
+- [ ] **Step 2: Wire seeding in runner**
 
 In `packages/engine/src/evaluator/index.ts`, after `globalEnv` is constructed, call `seedBuiltins(heap, globalEnv)`. Also pass `consoleOut` reference to native invocations via the heap object's `native` callback. Since `evalCall` constructs a `NativeCtx` from `ctx.consoleOut`, no signature change to `runCode` needed.
 
@@ -1956,7 +2090,7 @@ import { seedBuiltins } from '../runtime/builtins';
 seedBuiltins(heap, globalEnv);
 ```
 
-- [ ] **Step 4: Adapt evalCall to dispatch native**
+- [ ] **Step 3: Adapt evalCall to dispatch native**
 
 In `packages/engine/src/evaluator/nodes.ts`, inside `evalCall`, before constructing the call frame:
 
@@ -1973,7 +2107,7 @@ In `packages/engine/src/evaluator/nodes.ts`, inside `evalCall`, before construct
 
 (Move the existing `!fnObj.source || !fnObj.closure` check to AFTER the native branch so native funcs without source pass.)
 
-- [ ] **Step 5: Write failing tests**
+- [ ] **Step 4: Write failing tests**
 
 Create `packages/engine/tests/evaluator/console.test.ts`:
 
@@ -2002,7 +2136,7 @@ describe('evaluator — console.log', () => {
 });
 ```
 
-- [ ] **Step 6: Run tests — expect pass**
+- [ ] **Step 5: Run tests — expect pass**
 
 ```bash
 npx vitest --run packages/engine/tests/evaluator/console.test.ts
@@ -2010,10 +2144,10 @@ npx vitest --run packages/engine/tests/evaluator/console.test.ts
 
 Expected: 3 tests pass.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add packages/engine/src/runtime/builtins.ts packages/engine/src/runtime/model.ts packages/engine/src/evaluator packages/engine/tests/evaluator/console.test.ts
+git add packages/engine/src/runtime/builtins.ts packages/engine/src/evaluator packages/engine/tests/evaluator/console.test.ts
 git commit -m "feat(engine): console.log builtin with native dispatch"
 ```
 
@@ -2031,10 +2165,19 @@ Create `packages/engine/src/index.ts`:
 
 ```ts
 export { runCode } from './evaluator';
-export type { RunResult, RunOptions } from './evaluator';
-export type { Snapshot, FrameSnapshot } from './snapshot';
-export type { StepEvent, EventKind } from './events';
-export type { JSValue, Primitive, Reference, HeapObject, SourceLoc } from './runtime/model';
+export type {
+  RunResult,
+  RunOptions,
+  Snapshot,
+  FrameSnapshot,
+  StepEvent,
+  EventKind,
+  JSValue,
+  Primitive,
+  Reference,
+  HeapObject,
+  SourceLoc,
+} from './types';
 ```
 
 - [ ] **Step 2: Write integration tests**
