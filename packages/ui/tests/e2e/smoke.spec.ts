@@ -80,9 +80,27 @@ test('drag a frame → reload → position persisted', async ({ page }) => {
   expect(Math.abs(reloadBox.x - (initialBox.x + 200))).toBeLessThan(15);
 });
 
-test('class extends — prototype edge appears in the canvas', async ({ page }) => {
+test('class extends — prototype edge points to parent.prototype, not Object.prototype', async ({ page }) => {
+  // Seed node positions before the app loads so EdgesLayer renders edges.
+  // Reatom withLocalStorage reads from localStorage at atom initialization.
   await page.goto('/');
   await page.evaluate(() => window.localStorage.clear());
+  // Write positions first, then navigate — positions will be loaded on init.
+  await page.evaluate(() => {
+    const entries: Array<[string, { x: number; y: number }]> = [];
+    entries.push(['frame-0', { x: 30, y: 30 }]);
+    for (let i = 1; i <= 20; i++) {
+      entries.push([`obj${i}`, { x: 320, y: 30 + (i - 1) * 130 }]);
+    }
+    const envelope = {
+      data: entries,
+      id: Date.now(),
+      timestamp: Date.now(),
+      to: Date.now() + 2_000_000_000,
+      version: 1,
+    };
+    window.localStorage.setItem('jsrv:nodePositions', JSON.stringify(envelope));
+  });
   await page.goto('/');
   await page.waitForSelector('.cm-content', { timeout: 15_000 });
   await page.click('.cm-content');
@@ -93,5 +111,19 @@ test('class extends — prototype edge appears in the canvas', async ({ page }) 
 
   const snapshotPane = page.locator('.snapshot');
   await expect(snapshotPane.locator('svg')).toBeVisible();
+
+  // Legend always shows [[Prototype]] entry.
   await expect(snapshotPane).toContainText(/\[\[Prototype\]\]/);
+
+  // Count proto edges — at least 3: B instance → B.prototype,
+  // B.prototype → A.prototype, A.prototype → Object.prototype.
+  // Proto edges use marker-end="url(#arrowhead-proto)".
+  const protoEdges = await page.evaluate(() => {
+    const paths = Array.from(document.querySelectorAll('.snapshot svg path'));
+    return paths.filter((p) => {
+      const me = p.getAttribute('marker-end');
+      return me && me.includes('arrowhead-proto');
+    }).length;
+  });
+  expect(protoEdges).toBeGreaterThanOrEqual(3);
 });

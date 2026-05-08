@@ -264,8 +264,8 @@ function* evalAssign(node: A.AssignmentExpression, ctx: Context): Generator<Step
       const value = yield* evalNode(node.right, ctx);
       const heapObj2 = ctx.heap.get(objVal.id);
       if (!heapObj2) throw new Error('Internal: ref points to no heap object');
-      if (value.kind === 'ref') heapObj2.prototype = value;
-      else if (value.kind === 'null') heapObj2.prototype = null;
+      if (value.kind === 'ref') ctx.heap.setPrototype(objVal.id, value);
+      else if (value.kind === 'null') ctx.heap.setPrototype(objVal.id, null);
       else throw new Error('TypeError: __proto__ must be ref or null');
       yield { kind: 'proto-set', loc: locOf(node), payload: { id: objVal.id, via: '__proto__' } };
       return value;
@@ -391,8 +391,7 @@ function makeFunctionRef(
   ctx.heap.setProp(ref.id, 'prototype', protoObj);
   // Functions themselves descend from Function.prototype.
   if (protos) {
-    const fnObj = ctx.heap.get(ref.id);
-    if (fnObj) fnObj.prototype = protos.functionProto;
+    ctx.heap.setPrototype(ref.id, protos.functionProto);
   }
   if (selfBindingName) {
     closureEnv.define(selfBindingName, ref, 'const');
@@ -861,12 +860,10 @@ function* evalClass(node: A.Class, ctx: Context): Generator<StepEvent, JSValue> 
     if (parentProto && parentProto.kind === 'ref') {
       const protoRef2 = ctx.heap.get(classRef.id)?.ownProps.get('prototype');
       if (protoRef2 && protoRef2.kind === 'ref') {
-        const protoObj = ctx.heap.get(protoRef2.id);
-        if (protoObj) protoObj.prototype = parentProto;
+        ctx.heap.setPrototype(protoRef2.id, parentProto);
       }
     }
-    const classObj2 = ctx.heap.get(classRef.id);
-    if (classObj2) classObj2.prototype = parent;
+    ctx.heap.setPrototype(classRef.id, parent);
     yield { kind: 'proto-set', loc: locOf(node), payload: { id: classRef.id, via: 'extends' } };
   }
 

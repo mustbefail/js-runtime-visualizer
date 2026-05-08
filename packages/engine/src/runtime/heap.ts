@@ -34,6 +34,13 @@ export class Heap implements IHeap {
     this.dirtyIds.add(id);
   }
 
+  setPrototype(id: string, proto: Reference | null): void {
+    const obj = this.store.get(id);
+    if (!obj) throw new Error(`heap: no object with id ${id}`);
+    obj.prototype = proto;
+    this.dirtyIds.add(id);
+  }
+
   size(): number {
     return this.store.size;
   }

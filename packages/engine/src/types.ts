@@ -50,6 +50,7 @@ export interface IHeap {
   allocate(obj: HeapObject): Reference;
   get(id: string): HeapObject | undefined;
   setProp(id: string, key: string, value: JSValue): void;
+  setPrototype(id: string, proto: Reference | null): void;
   size(): number;
   entries(): IterableIterator<[string, HeapObject]>;
   snapshot(): Map<string, HeapObject>;

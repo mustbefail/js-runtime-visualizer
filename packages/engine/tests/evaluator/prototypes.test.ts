@@ -36,7 +36,9 @@ describe('evaluator — prototype-aware member access', () => {
     `);
     expect(finalValue).toEqual({ kind: 'boolean', value: true });
     const kinds = new Set(snapshots.map((s) => s.eventKind));
-    expect(kinds.has('proto-walk') || kinds.has('lookup')).toBe(true);
+    // Object.create returned a plain ref; getPrototypeOf walked it. proto-walk
+    // is emitted whenever a member-access chain extends past the receiver.
+    expect(kinds.has('lookup')).toBe(true);
   });
   it('emits a proto-set event when assigning to a function .prototype', () => {
     const { snapshots } = runCode(`
@@ -62,5 +64,40 @@ describe('evaluator — prototype-aware member access', () => {
       Object.getPrototypeOf(obj) === obj.__proto__;
     `);
     expect(finalValue).toEqual({ kind: 'boolean', value: true });
+  });
+
+  it('proto-set propagates [[Prototype]] mutations into the snapshot stream', () => {
+    const { snapshots } = runCode(`
+      class A {}
+      class B extends A {}
+      new B();
+    `);
+    const last = snapshots[snapshots.length - 1]!;
+    // Find B.prototype and A.prototype by walking back from a B instance.
+    const bInstance = Array.from(last.heap.values()).reverse().find(
+      (o) => o.kind === 'object' && o.prototype !== null && !o.source,
+    );
+    expect(bInstance).toBeDefined();
+    const bProtoRef = bInstance!.prototype!;
+    const bProto = last.heap.get(bProtoRef.id)!;
+    // B.prototype should NOT point to Object.prototype directly — it points to A.prototype.
+    expect(bProto.prototype).not.toBeNull();
+    const aProto = last.heap.get(bProto.prototype!.id)!;
+    // A.prototype's prototype should be Object.prototype (root, prototype null).
+    // The chain: B instance → B.prototype → A.prototype → Object.prototype → null.
+    expect(aProto.prototype).not.toBeNull();
+    const objectProto = last.heap.get(aProto.prototype!.id)!;
+    expect(objectProto.prototype).toBeNull();
+  });
+
+  it('emits proto-walk events when a property is found on the prototype chain', () => {
+    const { snapshots } = runCode(`
+      const grandProto = { x: 1 };
+      const proto = Object.create(grandProto);
+      const obj = Object.create(proto);
+      obj.x;
+    `);
+    const kinds = snapshots.map((s) => s.eventKind);
+    expect(kinds).toContain('proto-walk');
   });
 });
