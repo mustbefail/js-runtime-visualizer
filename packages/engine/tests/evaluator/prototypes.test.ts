@@ -46,4 +46,21 @@ describe('evaluator — prototype-aware member access', () => {
     const kinds = snapshots.map((s) => s.eventKind);
     expect(kinds).toContain('proto-set');
   });
+  it('__proto__ reads and writes [[Prototype]]', () => {
+    const { finalValue } = runCode(`
+      const proto = { x: 1 };
+      const obj = {};
+      obj.__proto__ = proto;
+      obj.x;
+    `);
+    expect(finalValue).toEqual({ kind: 'number', value: 1 });
+  });
+  it('reading __proto__ returns the [[Prototype]] ref or null', () => {
+    const { finalValue } = runCode(`
+      const proto = {};
+      const obj = Object.create(proto);
+      Object.getPrototypeOf(obj) === obj.__proto__;
+    `);
+    expect(finalValue).toEqual({ kind: 'boolean', value: true });
+  });
 });

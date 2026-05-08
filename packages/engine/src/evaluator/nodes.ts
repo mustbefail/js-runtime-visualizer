@@ -250,6 +250,18 @@ function* evalAssign(
       throw new Error('TypeError: assignment target is primitive');
     }
     const key = yield* memberKey(node.left, ctx);
+
+    if (key === '__proto__') {
+      const value = yield* evalNode(node.right, ctx);
+      const heapObj2 = ctx.heap.get(objVal.id);
+      if (!heapObj2) throw new Error('Internal: ref points to no heap object');
+      if (value.kind === 'ref') heapObj2.prototype = value;
+      else if (value.kind === 'null') heapObj2.prototype = null;
+      else throw new Error('TypeError: __proto__ must be ref or null');
+      yield { kind: 'proto-set', loc: locOf(node), payload: { id: objVal.id, via: '__proto__' } };
+      return value;
+    }
+
     const heapObj = ctx.heap.get(objVal.id);
     if (!heapObj) throw new Error('Internal: ref points to no heap object');
     const current =
@@ -545,6 +557,12 @@ function* evalMember(
     throw new Error('TypeError: property access on primitive');
   }
   const key = yield* memberKey(node, ctx);
+
+  if (key === '__proto__') {
+    const heapObj = ctx.heap.get(obj.id);
+    if (!heapObj) throw new Error('Internal: ref points to no heap object');
+    return heapObj.prototype ?? { kind: 'null' };
+  }
 
   // Walk [[Prototype]] chain. Emit a proto-walk event for each hop after the
   // first own-property miss.
