@@ -58,6 +58,8 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return yield* evalArrayLiteral(node as A.ArrayExpression, ctx);
     case 'MemberExpression':
       return yield* evalMember(node as A.MemberExpression, ctx);
+    case 'LogicalExpression':
+      return yield* evalLogical(node as A.LogicalExpression, ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -477,5 +479,21 @@ function stringifyKey(v: JSValue): string {
       return String(v.value);
     default:
       return stringify(v);
+  }
+}
+
+function* evalLogical(node: A.LogicalExpression, ctx: Context): Generator<StepEvent, JSValue> {
+  const left = yield* evalNode(node.left, ctx);
+  switch (node.operator) {
+    case '&&':
+      return toBoolean(left) ? yield* evalNode(node.right, ctx) : left;
+    case '||':
+      return toBoolean(left) ? left : yield* evalNode(node.right, ctx);
+    case '??':
+      return left.kind === 'null' || left.kind === 'undefined'
+        ? yield* evalNode(node.right, ctx)
+        : left;
+    default:
+      throw new Error(`Logical ${node.operator} not supported`);
   }
 }
