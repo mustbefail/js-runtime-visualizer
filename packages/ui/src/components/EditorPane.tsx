@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
+import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorState, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, type DecorationSet } from '@codemirror/view';
 import { useAtom, useFrame } from '@reatom/react';
@@ -44,6 +45,7 @@ export function EditorPane() {
       extensions: [
         basicSetup,
         javascript(),
+        oneDark,
         currentLineField,
         EditorView.theme({
           '&': { height: '100%' },
