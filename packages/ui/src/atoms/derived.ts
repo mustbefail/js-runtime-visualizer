@@ -3,10 +3,7 @@ import type { Snapshot } from '../types';
 import { snapshotsAtom } from './engine';
 import { currentStepIndexAtom } from './ui';
 
-export const totalStepsAtom = computed(
-  () => snapshotsAtom().length,
-  'totalStepsAtom',
-);
+export const totalStepsAtom = computed(() => snapshotsAtom().length, 'totalStepsAtom');
 
 export const currentSnapshotAtom = computed<Snapshot | null>(() => {
   const snaps = snapshotsAtom();
@@ -16,10 +13,7 @@ export const currentSnapshotAtom = computed<Snapshot | null>(() => {
   return snaps[i] ?? null;
 }, 'currentSnapshotAtom');
 
-export const isAtStartAtom = computed(
-  () => currentStepIndexAtom() <= 0,
-  'isAtStartAtom',
-);
+export const isAtStartAtom = computed(() => currentStepIndexAtom() <= 0, 'isAtStartAtom');
 
 export const isAtEndAtom = computed(() => {
   const total = totalStepsAtom();

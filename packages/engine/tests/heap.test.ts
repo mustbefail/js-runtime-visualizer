@@ -60,8 +60,8 @@ describe('Heap', () => {
     const snap1 = heap.snapshot();
     heap.setProp(a.id, 'x', { kind: 'number', value: 1 });
     const snap2 = heap.snapshot();
-    expect(snap2.get(a.id)).not.toBe(snap1.get(a.id));         // changed
-    expect(snap2.get(b.id)).toBe(snap1.get(b.id));             // unchanged → shared
+    expect(snap2.get(a.id)).not.toBe(snap1.get(a.id)); // changed
+    expect(snap2.get(b.id)).toBe(snap1.get(b.id)); // unchanged → shared
     expect(snap2.get(a.id)?.ownProps.get('x')).toEqual({ kind: 'number', value: 1 });
     // snap1 must remain unchanged
     expect(snap1.get(a.id)?.ownProps.has('x')).toBe(false);

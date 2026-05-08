@@ -20,9 +20,11 @@ function renderValue(v: JSValue): string {
 
 function renderObject(obj: HeapObject, id: string) {
   const labelColor =
-    obj.kind === 'function' ? 'var(--info)' :
-    obj.kind === 'array' ? 'var(--accent)' :
-    'var(--good)';
+    obj.kind === 'function'
+      ? 'var(--info)'
+      : obj.kind === 'array'
+        ? 'var(--accent)'
+        : 'var(--good)';
   return (
     <div
       key={id}
@@ -49,9 +51,7 @@ function renderObject(obj: HeapObject, id: string) {
         </div>
       ))}
       {obj.ownProps.size === 0 && (
-        <div style={{ paddingLeft: 6, color: 'var(--muted)', fontSize: 10 }}>
-          (no own props)
-        </div>
+        <div style={{ paddingLeft: 6, color: 'var(--muted)', fontSize: 10 }}>(no own props)</div>
       )}
     </div>
   );
@@ -65,9 +65,7 @@ export function HeapView() {
       <div className="section-title">Heap ({snap.heap.size})</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {Array.from(snap.heap.entries()).map(([id, obj]) => renderObject(obj, id))}
-        {snap.heap.size === 0 && (
-          <div style={{ color: 'var(--muted)', fontSize: 12 }}>(empty)</div>
-        )}
+        {snap.heap.size === 0 && <div style={{ color: 'var(--muted)', fontSize: 12 }}>(empty)</div>}
       </div>
     </div>
   );

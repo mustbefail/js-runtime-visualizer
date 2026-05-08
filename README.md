@@ -37,6 +37,12 @@ npm install
 npm test       # 61 tests across parser, heap, env, snapshot, evaluator, integration, cross-check
 ```
 
+**Run the app (dev mode):**
+
+```bash
+npm run ui:dev   # serves http://localhost:5173
+```
+
 ## Try the engine
 
 ```ts
@@ -58,7 +64,7 @@ console.log(snapshots.length); // each step recorded as an immutable snapshot
 ## Roadmap
 
 - [x] **Plan 1** — headless engine: parser, runtime model, evaluator (literals → control flow → functions → closures → objects), `console.log`, snapshot store, drill-in stepping. _Completed 2026-05-08._
-- [ ] **Plan 2** — UI shell: Vite + React + Reatom + CodeMirror, Run button, textual snapshot view, time-travel scrubber. Plus structural-sharing in `SnapshotStore`.
+- [x] **Plan 2** — UI shell: Vite + React + Reatom + CodeMirror, Run button, textual snapshot view, time-travel scrubber, session persisted in `localStorage`. Engine snapshots now share `HeapObject` references across steps. _Completed 2026-05-08._
 - [ ] **Plan 3** — canvas visualisation: pan/zoom SVG canvas, draggable frames + heap nodes, edges, collapse.
 - [ ] **Plan 4** — prototypes & inheritance: `Object.create`, `__proto__`, `class`/`extends`, `new`, this binding, prototype-chain lookup highlights, prototype pollution mode.
 - [ ] **Plan 5** — errors & traceback: `throw`/`try`/`catch`, unwind events, animated error propagation on the canvas.

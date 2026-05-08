@@ -4,10 +4,7 @@ import { drillInAtom } from '../atoms/session';
 import { runErrorAtom } from '../atoms/engine';
 import { runAction, resetAction } from '../atoms/actions';
 
-const toggleDrillInAction = action(
-  () => drillInAtom.set((prev) => !prev),
-  'toggleDrillInAction',
-);
+const toggleDrillInAction = action(() => drillInAtom.set((prev) => !prev), 'toggleDrillInAction');
 
 export function Toolbar() {
   const [drillIn] = useAtom(drillInAtom);
@@ -24,7 +21,13 @@ export function Toolbar() {
       <strong>JS Runtime Visualizer</strong>
       <div style={{ flex: 1 }} />
       <label
-        style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)' }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          fontSize: 12,
+          color: 'var(--muted)',
+        }}
       >
         <input type="checkbox" checked={drillIn} onChange={onToggleDrillIn} />
         drill-in
@@ -32,10 +35,7 @@ export function Toolbar() {
       <button onClick={onRun}>Run</button>
       <button onClick={onReset}>Reset</button>
       {runError && (
-        <span
-          style={{ color: 'var(--bad)', fontSize: 12, marginLeft: 8 }}
-          title={runError}
-        >
+        <span style={{ color: 'var(--bad)', fontSize: 12, marginLeft: 8 }} title={runError}>
           ⊗ error
         </span>
       )}

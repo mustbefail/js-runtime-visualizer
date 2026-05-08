@@ -13,7 +13,9 @@ export function SnapshotPane() {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
         <strong>Snapshot</strong>
         <span style={{ color: 'var(--muted)', fontSize: 12 }}>
-          {snap ? `step ${step + 1} / ${total} · ${snap.eventKind} @ L${snap.loc.line}` : '(no run)'}
+          {snap
+            ? `step ${step + 1} / ${total} · ${snap.eventKind} @ L${snap.loc.line}`
+            : '(no run)'}
         </span>
       </div>
       <CallStackView />

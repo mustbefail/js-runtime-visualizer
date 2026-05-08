@@ -27,5 +27,4 @@ export type RunStatus =
 export const STORAGE_PREFIX = 'jsrv';
 export const STORAGE_VERSION = 1;
 
-export const persistKey = (slot: string): string =>
-  `${STORAGE_PREFIX}:${slot}`;
+export const persistKey = (slot: string): string => `${STORAGE_PREFIX}:${slot}`;

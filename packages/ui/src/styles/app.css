@@ -10,7 +10,11 @@
   --good: #a6e3a1;
   --bad: #f38ba8;
   --info: #89b4fa;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 body {
@@ -31,14 +35,59 @@ body {
   height: 100vh;
 }
 
-.toolbar  { grid-area: toolbar;  border-bottom: 1px solid var(--border); }
-.editor   { grid-area: editor;   border-right: 1px solid var(--border); overflow: hidden; }
-.snapshot { grid-area: snapshot; overflow: auto; padding: 12px; }
-.console  { grid-area: console;  border-top: 1px solid var(--border); border-right: 1px solid var(--border); padding: 8px 12px; overflow: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-.scrubber { grid-area: scrubber; border-top: 1px solid var(--border); padding: 6px 12px; display: flex; align-items: center; gap: 8px; }
+.toolbar {
+  grid-area: toolbar;
+  border-bottom: 1px solid var(--border);
+}
+.editor {
+  grid-area: editor;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+.snapshot {
+  grid-area: snapshot;
+  overflow: auto;
+  padding: 12px;
+}
+.console {
+  grid-area: console;
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 8px 12px;
+  overflow: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+.scrubber {
+  grid-area: scrubber;
+  border-top: 1px solid var(--border);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-button { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; cursor: pointer; font: inherit; }
-button:hover { border-color: var(--muted); }
-button[disabled] { opacity: 0.4; cursor: not-allowed; }
+button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover {
+  border-color: var(--muted);
+}
+button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
-.section-title { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 6px 0; }
+.section-title {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 6px 0;
+}

@@ -39,9 +39,7 @@ describe('derived atoms — scrubber bounds', () => {
   it('isAtStart and isAtEnd reflect currentStepIndex bounds', async () => {
     const { codeAtom } = await import('../../src/atoms/session');
     const { currentStepIndexAtom } = await import('../../src/atoms/ui');
-    const { isAtStartAtom, isAtEndAtom, totalStepsAtom } = await import(
-      '../../src/atoms/derived'
-    );
+    const { isAtStartAtom, isAtEndAtom, totalStepsAtom } = await import('../../src/atoms/derived');
     const { runAction } = await import('../../src/atoms/actions');
 
     codeAtom.set('let x = 1; x;');

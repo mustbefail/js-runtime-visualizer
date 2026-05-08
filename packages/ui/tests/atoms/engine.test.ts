@@ -27,9 +27,7 @@ afterEach(() => {
 describe('engine atoms + run action', () => {
   it('runAction populates snapshots and finalValue from valid code', async () => {
     const { codeAtom } = await import('../../src/atoms/session');
-    const { snapshotsAtom, finalValueAtom, runErrorAtom } = await import(
-      '../../src/atoms/engine'
-    );
+    const { snapshotsAtom, finalValueAtom, runErrorAtom } = await import('../../src/atoms/engine');
     const { runAction } = await import('../../src/atoms/actions');
 
     codeAtom.set('let x = 1 + 2;');
@@ -54,9 +52,7 @@ describe('engine atoms + run action', () => {
 
   it('resetAction clears engine state but does not touch session', async () => {
     const { codeAtom } = await import('../../src/atoms/session');
-    const { snapshotsAtom, finalValueAtom, runErrorAtom } = await import(
-      '../../src/atoms/engine'
-    );
+    const { snapshotsAtom, finalValueAtom, runErrorAtom } = await import('../../src/atoms/engine');
     const { runAction, resetAction } = await import('../../src/atoms/actions');
 
     codeAtom.set('let x = 5;');

@@ -6,10 +6,7 @@ import { totalStepsAtom, isAtStartAtom, isAtEndAtom } from '../atoms/derived';
 import { scrubberSpeedAtom } from '../atoms/session';
 
 const stepFirst = action(() => currentStepIndexAtom.set(0), 'stepFirst');
-const stepPrev = action(
-  () => currentStepIndexAtom.set((i) => Math.max(0, i - 1)),
-  'stepPrev',
-);
+const stepPrev = action(() => currentStepIndexAtom.set((i) => Math.max(0, i - 1)), 'stepPrev');
 const stepNext = action(() => {
   const total = totalStepsAtom();
   currentStepIndexAtom.set((i) => Math.min(total - 1, i + 1));
@@ -18,10 +15,7 @@ const stepLast = action(() => {
   const total = totalStepsAtom();
   currentStepIndexAtom.set(Math.max(0, total - 1));
 }, 'stepLast');
-const togglePlay = action(
-  () => isPlayingAtom.set((p) => !p),
-  'togglePlay',
-);
+const togglePlay = action(() => isPlayingAtom.set((p) => !p), 'togglePlay');
 const setStep = action((i: number) => currentStepIndexAtom.set(i), 'setStep');
 const setSpeed = action((n: number) => scrubberSpeedAtom.set(n), 'setSpeed');
 
@@ -58,11 +52,21 @@ export function ScrubberPane() {
 
   return (
     <div className="scrubber">
-      <button onClick={onFirst} disabled={atStart || total === 0}>⏮</button>
-      <button onClick={onPrev} disabled={atStart || total === 0}>◀</button>
-      <button onClick={onToggle} disabled={total === 0}>{playing ? '⏸' : '▶'}</button>
-      <button onClick={onNext} disabled={atEnd || total === 0}>▶</button>
-      <button onClick={onLast} disabled={atEnd || total === 0}>⏭</button>
+      <button onClick={onFirst} disabled={atStart || total === 0}>
+        ⏮
+      </button>
+      <button onClick={onPrev} disabled={atStart || total === 0}>
+        ◀
+      </button>
+      <button onClick={onToggle} disabled={total === 0}>
+        {playing ? '⏸' : '▶'}
+      </button>
+      <button onClick={onNext} disabled={atEnd || total === 0}>
+        ▶
+      </button>
+      <button onClick={onLast} disabled={atEnd || total === 0}>
+        ⏭
+      </button>
       <input
         type="range"
         min={0}
