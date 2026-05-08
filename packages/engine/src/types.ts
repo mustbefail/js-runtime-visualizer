@@ -73,6 +73,7 @@ export type Frame = {
   fnName: string;
   env: IEnvironmentRecord;
   callSite: SourceLoc | null;
+  thisValue: JSValue;
 };
 
 export interface ICallStack {

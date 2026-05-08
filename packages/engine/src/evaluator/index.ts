@@ -28,7 +28,13 @@ export function runCode(code: string, options: RunOptions = {}): RunResult {
 
   seedBuiltins(heap, globalEnv);
 
-  stack.push({ fn: 'global', fnName: '<global>', env: globalEnv, callSite: null });
+  stack.push({
+    fn: 'global',
+    fnName: '<global>',
+    env: globalEnv,
+    callSite: null,
+    thisValue: { kind: 'undefined' },
+  });
 
   const store = new SnapshotStore();
   const initialLoc: SourceLoc = { line: 1, col: 0 };

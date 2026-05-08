@@ -1,6 +1,6 @@
 import type * as A from 'acorn';
 import { type JSValue, num, bool } from '../types';
-import type { Reference, StepEvent } from '../types';
+import type { Reference, HeapObject, StepEvent } from '../types';
 import type { Context } from '../types';
 import { fromJsLiteral, toBoolean, toNumber } from './values';
 import { EnvironmentRecord } from '../runtime/env';
@@ -67,6 +67,11 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return toBoolean(cond)
         ? yield* evalNode((node as A.ConditionalExpression).consequent, ctx)
         : yield* evalNode((node as A.ConditionalExpression).alternate, ctx);
+    }
+    case 'ThisExpression': {
+      const top = ctx.stack.top();
+      if (!top) throw new Error('Internal: no active frame for ThisExpression');
+      return top.thisValue;
     }
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
@@ -411,8 +416,20 @@ function* evalFunctionDecl(
   return { kind: 'undefined' };
 }
 
-function* evalCall(node: A.CallExpression, ctx: Context): Generator<StepEvent, JSValue> {
-  const callee = yield* evalNode(node.callee as A.Node, ctx);
+function* evalCall(
+  node: A.CallExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  // Determine `this` based on callee shape.
+  let thisValue: JSValue = { kind: 'undefined' };
+  let callee: JSValue;
+  if (node.callee.type === 'MemberExpression') {
+    const recv = yield* evalNode(node.callee.object as A.Node, ctx);
+    if (recv.kind === 'ref') thisValue = recv;
+    callee = yield* evalNodeMemberAsCallee(node.callee as A.MemberExpression, recv, ctx);
+  } else {
+    callee = yield* evalNode(node.callee as A.Node, ctx);
+  }
   if (callee.kind !== 'ref') {
     throw new Error('TypeError: call target is not a function');
   }
@@ -426,62 +443,23 @@ function* evalCall(node: A.CallExpression, ctx: Context): Generator<StepEvent, J
     args.push(yield* evalNode(a as A.Node, ctx));
   }
 
-  if (fnObj.native) {
-    const result = fnObj.native(args, { consoleOut: ctx.consoleOut });
-    const lastLine = ctx.consoleOut[ctx.consoleOut.length - 1];
-    yield {
-      kind: 'console',
-      loc: locOf(node),
-      payload: { line: lastLine },
-    };
-    return result;
-  }
-
-  if (!fnObj.source || !fnObj.closure) {
-    throw new Error('TypeError: callee is not a callable function');
-  }
-
-  const callEnv = new EnvironmentRecord(fnObj.closure);
-  fnObj.source.params.forEach((name, i) =>
-    callEnv.define(name, args[i] ?? { kind: 'undefined' }, 'let'),
-  );
-
-  ctx.stack.push({
-    fn: callee,
-    fnName: fnObj.source.name ?? '<anonymous>',
-    env: callEnv,
-    callSite: locOf(node),
-  });
-  yield {
-    kind: 'enter-frame',
-    loc: locOf(node),
-    payload: { fnName: fnObj.source.name },
-  };
-
-  let returnValue: JSValue = { kind: 'undefined' };
-  try {
-    const body = fnObj.source.body;
-    if (fnObj.source.isArrow && body.type !== 'BlockStatement') {
-      // concise-body arrow: body is the expression itself
-      returnValue = yield* evalNode(body, ctx);
-    } else {
-      yield* evalNode(body, ctx);
+  // Intercept Function.prototype.call: shift first arg into thisValue.
+  const builtinName = fnObj.ownProps.get('__builtin_name__');
+  if (builtinName && builtinName.kind === 'string' && builtinName.value === 'Function.prototype.call') {
+    const targetFn = thisValue;
+    if (targetFn.kind !== 'ref') {
+      throw new Error('TypeError: Function.prototype.call requires a function this');
     }
-  } catch (e) {
-    if (e instanceof ReturnSignal) {
-      returnValue = e.value;
-    } else {
-      throw e;
+    const targetObj = ctx.heap.get(targetFn.id);
+    if (!targetObj || targetObj.kind !== 'function') {
+      throw new Error('TypeError: target is not a function');
     }
+    const newThis = args[0] ?? { kind: 'undefined' };
+    const newArgs = args.slice(1);
+    return yield* invokeFunction(targetObj, targetFn, newThis, newArgs, node, ctx);
   }
 
-  ctx.stack.pop();
-  yield {
-    kind: 'leave-frame',
-    loc: locOf(node),
-    payload: { returnValue },
-  };
-  return returnValue;
+  return yield* invokeFunction(fnObj, callee, thisValue, args, node, ctx);
 }
 
 function* evalReturn(node: A.ReturnStatement, ctx: Context): Generator<StepEvent, JSValue> {
@@ -661,4 +639,93 @@ function* hoistStatements(
       }
     }
   }
+}
+
+function* invokeFunction(
+  fnObj: HeapObject,
+  fnRef: Reference,
+  thisValue: JSValue,
+  args: JSValue[],
+  node: A.CallExpression,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  if (fnObj.native) {
+    const result = fnObj.native(args, { consoleOut: ctx.consoleOut });
+    const lastLine = ctx.consoleOut[ctx.consoleOut.length - 1];
+    yield {
+      kind: 'console',
+      loc: locOf(node),
+      payload: { line: lastLine },
+    };
+    return result;
+  }
+  if (!fnObj.source || !fnObj.closure) {
+    throw new Error('TypeError: callee is not a callable function');
+  }
+  const callEnv = new EnvironmentRecord(fnObj.closure);
+  fnObj.source.params.forEach((name, i) =>
+    callEnv.define(name, args[i] ?? { kind: 'undefined' }, 'let'),
+  );
+  ctx.stack.push({
+    fn: fnRef,
+    fnName: fnObj.source.name ?? '<anonymous>',
+    env: callEnv,
+    callSite: locOf(node),
+    thisValue,
+  });
+  yield {
+    kind: 'enter-frame',
+    loc: locOf(node),
+    payload: { fnName: fnObj.source.name },
+  };
+  if (thisValue.kind !== 'undefined') {
+    yield { kind: 'bind-this', loc: locOf(node), payload: { thisValue } };
+  }
+  let returnValue: JSValue = { kind: 'undefined' };
+  try {
+    const body = fnObj.source.body;
+    if (fnObj.source.isArrow && body.type !== 'BlockStatement') {
+      returnValue = yield* evalNode(body, ctx);
+    } else {
+      yield* evalNode(body, ctx);
+    }
+  } catch (e) {
+    if (e instanceof ReturnSignal) {
+      returnValue = e.value;
+    } else {
+      throw e;
+    }
+  }
+  ctx.stack.pop();
+  yield {
+    kind: 'leave-frame',
+    loc: locOf(node),
+    payload: { returnValue },
+  };
+  return returnValue;
+}
+
+function* evalNodeMemberAsCallee(
+  node: A.MemberExpression,
+  recv: JSValue,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  if (recv.kind !== 'ref') {
+    throw new Error('TypeError: cannot call method on primitive');
+  }
+  const key = yield* memberKey(node, ctx);
+  if (key === '__proto__') {
+    const heapObj = ctx.heap.get(recv.id);
+    if (!heapObj) throw new Error('Internal: ref points to no heap object');
+    return heapObj.prototype ?? { kind: 'null' };
+  }
+  // Walk chain identical to evalMember (own-first, then up [[Prototype]]).
+  let cur: Reference | null = recv;
+  while (cur) {
+    const heapObj = ctx.heap.get(cur.id);
+    if (!heapObj) throw new Error('Internal: ref points to no heap object');
+    if (heapObj.ownProps.has(key)) return heapObj.ownProps.get(key)!;
+    cur = heapObj.prototype;
+  }
+  return { kind: 'undefined' };
 }
