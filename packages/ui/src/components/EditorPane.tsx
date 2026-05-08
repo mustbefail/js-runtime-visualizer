@@ -3,12 +3,9 @@ import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { EditorState, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, type DecorationSet } from '@codemirror/view';
-import { useAtom, useAction } from '@reatom/react';
-import { action } from '@reatom/core';
+import { useAtom, useFrame } from '@reatom/react';
 import { codeAtom } from '../atoms/session';
 import { currentSnapshotAtom } from '../atoms/derived';
-
-const setCodeAction = action((next: string) => codeAtom.set(next), 'setCodeAction');
 
 const setCurrentLine = StateEffect.define<number | null>();
 const currentLineField = StateField.define<DecorationSet>({
@@ -38,7 +35,7 @@ export function EditorPane() {
   const viewRef = useRef<EditorView | null>(null);
   const [code] = useAtom(codeAtom);
   const [snap] = useAtom(currentSnapshotAtom);
-  const setCode = useAction(setCodeAction);
+  const frame = useFrame();
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -53,17 +50,21 @@ export function EditorPane() {
           '.cm-scroller': { fontFamily: 'JetBrains Mono, monospace' },
         }),
         EditorView.updateListener.of((vu) => {
-          if (vu.docChanged) {
-            const next = vu.state.doc.toString();
-            if (next !== codeAtom()) setCode(next);
-          }
+          if (!vu.docChanged) return;
+          const next = vu.state.doc.toString();
+          // Reatom atoms require a frame on the STACK (clearStack() is active in main.tsx).
+          // Run the read-then-set under the provider's frame so codeAtom() and
+          // codeAtom.set(next) both find an active context.
+          frame.run(() => {
+            if (next !== codeAtom()) codeAtom.set(next);
+          });
         }),
       ],
     });
     const view = new EditorView({ state: startState, parent: hostRef.current });
     viewRef.current = view;
     return () => view.destroy();
-  }, []);
+  }, [frame]);
 
   // External codeAtom → editor doc mirroring.
   useEffect(() => {
