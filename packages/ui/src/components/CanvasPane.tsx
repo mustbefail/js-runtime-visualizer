@@ -21,6 +21,9 @@ const EVENT_LABELS: Record<EventKind, string> = {
   lookup: 'Variable read',
   mutate: 'Property updated',
   console: 'console.log',
+  'proto-walk': 'Walked [[Prototype]] chain',
+  'proto-set': '[[Prototype]] set',
+  'bind-this': 'this bound',
 };
 
 export function CanvasPane() {
