@@ -10,6 +10,7 @@ import { usePanZoom } from '../canvas/usePanZoom';
 import { FrameNode } from './FrameNode';
 import { HeapNode } from './HeapNode';
 import { EdgesLayer } from './EdgesLayer';
+import { CanvasLegend } from './CanvasLegend';
 import type { EventKind } from '../types';
 
 const EVENT_LABELS: Record<EventKind, string> = {
@@ -103,6 +104,7 @@ export function CanvasPane() {
           )}
         </g>
       </svg>
+      <CanvasLegend />
     </div>
   );
 }
