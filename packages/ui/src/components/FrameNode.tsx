@@ -57,7 +57,7 @@ export function FrameNode(props: {
   const padding = 6;
   const bindings = isCollapsed ? [] : Array.from(frame.bindings.entries());
   const height =
-    headerHeight + (isCollapsed ? 0 : padding + bindings.length * lineHeight + padding);
+    headerHeight + (isCollapsed ? 0 : padding + Math.max(1, bindings.length) * lineHeight + padding);
 
   return (
     <g
