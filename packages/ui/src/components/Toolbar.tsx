@@ -2,7 +2,7 @@ import { useAtom, useAction } from '@reatom/react';
 import { action } from '@reatom/core';
 import { drillInAtom } from '../atoms/session';
 import { runErrorAtom } from '../atoms/engine';
-import { runAction, resetAction } from '../atoms/actions';
+import { runAction, resetAction, autoArrangeAction } from '../atoms/actions';
 
 const toggleDrillInAction = action(() => drillInAtom.set((prev) => !prev), 'toggleDrillInAction');
 
@@ -11,6 +11,7 @@ export function Toolbar() {
   const [runError] = useAtom(runErrorAtom);
   const onRun = useAction(runAction);
   const onReset = useAction(resetAction);
+  const onAutoArrange = useAction(autoArrangeAction);
   const onToggleDrillIn = useAction(toggleDrillInAction);
 
   return (
@@ -34,6 +35,9 @@ export function Toolbar() {
       </label>
       <button onClick={onRun}>Run</button>
       <button onClick={onReset}>Reset</button>
+      <button onClick={onAutoArrange} title="Reset all node positions and pan/zoom">
+        Auto-arrange
+      </button>
       {runError && (
         <span style={{ color: 'var(--bad)', fontSize: 12, marginLeft: 8 }} title={runError}>
           ⊗ error
