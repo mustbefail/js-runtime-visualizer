@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAtom, useAction } from '@reatom/react';
+import { useAtom, useAction, useFrame } from '@reatom/react';
 import { action } from '@reatom/core';
 import { currentStepIndexAtom, isPlayingAtom } from '../atoms/ui';
 import { totalStepsAtom, isAtStartAtom, isAtEndAtom } from '../atoms/derived';
@@ -34,21 +34,26 @@ export function ScrubberPane() {
   const onToggle = useAction(togglePlay);
   const onSetStep = useAction(setStep);
   const onSetSpeed = useAction(setSpeed);
+  const frame = useFrame();
 
   // Auto-advance when playing.
+  // setInterval runs outside any Reatom frame; main.tsx calls clearStack(), so
+  // bare atom reads/writes here would silently throw. Wrap in frame.run(...).
   useEffect(() => {
     if (!playing || total === 0) return;
     const interval = Math.max(20, 200 / speed);
     const id = window.setInterval(() => {
-      const cur = currentStepIndexAtom();
-      if (cur >= total - 1) {
-        isPlayingAtom.set(false);
-      } else {
-        currentStepIndexAtom.set(cur + 1);
-      }
+      frame.run(() => {
+        const cur = currentStepIndexAtom();
+        if (cur >= total - 1) {
+          isPlayingAtom.set(false);
+        } else {
+          currentStepIndexAtom.set(cur + 1);
+        }
+      });
     }, interval);
     return () => window.clearInterval(id);
-  }, [playing, speed, total]);
+  }, [playing, speed, total, frame]);
 
   return (
     <div className="scrubber">
