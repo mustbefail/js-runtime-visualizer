@@ -50,19 +50,60 @@ jobs:
       - name: Build SPA bundle
         run: npm run ui:build
 
+      - name: Validate deploy secrets
+        env:
+          RAW_HOST: ${{ secrets.DEPLOY_HOST }}
+          RAW_USER: ${{ secrets.DEPLOY_USER }}
+          RAW_PATH: ${{ secrets.DEPLOY_PATH }}
+          RAW_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          RAW_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          # Strip surrounding whitespace and any internal CR/LF that
+          # often sneaks in when a secret is pasted into the GH UI.
+          clean() { printf %s "$1" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+          DEPLOY_HOST="$(clean "${RAW_HOST}")"
+          DEPLOY_USER="$(clean "${RAW_USER}")"
+          DEPLOY_PATH="$(clean "${RAW_PATH}")"
+          DEPLOY_PORT="$(clean "${RAW_PORT:-22}")"
+          : "${DEPLOY_PORT:=22}"
+
+          fail=0
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret ${name} is empty (or only whitespace). Set it in repo Settings → Secrets and variables → Actions."
+              fail=1
+            fi
+          done
+          if [ -z "${RAW_KEY}" ]; then
+            echo "::error::Secret DEPLOY_SSH_KEY is empty."
+            fail=1
+          fi
+          if ! printf %s "${DEPLOY_HOST}" | grep -qE '^[A-Za-z0-9.:_-]+$'; then
+            echo "::error::DEPLOY_HOST=${DEPLOY_HOST} contains invalid characters (only A-Z a-z 0-9 . : _ - allowed)."
+            fail=1
+          fi
+          if [ "$fail" -ne 0 ]; then
+            exit 1
+          fi
+
+          # Export the cleaned values for later steps via $GITHUB_ENV.
+          {
+            echo "DEPLOY_HOST=${DEPLOY_HOST}"
+            echo "DEPLOY_USER=${DEPLOY_USER}"
+            echo "DEPLOY_PATH=${DEPLOY_PATH}"
+            echo "DEPLOY_PORT=${DEPLOY_PORT}"
+          } >> "$GITHUB_ENV"
+
       - name: Configure SSH
+        env:
+          RAW_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "${RAW_KEY}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "${{ secrets.DEPLOY_PORT || '22' }}" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${DEPLOY_PORT}" -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
 
       - name: Rsync dist to server
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o StrictHostKeyChecking=yes" \
@@ -70,8 +111,6 @@ jobs:
             "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
 
       - name: Smoke check (HTTP 200 on /)
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           status=$(curl -s -o /dev/null -w "%{http_code}" "http://${DEPLOY_HOST}/")
           echo "Server returned: ${status}"
