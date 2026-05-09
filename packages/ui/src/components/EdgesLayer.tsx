@@ -2,20 +2,20 @@ import { useAtom } from '@reatom/react';
 import { dragStateAtom } from '../atoms/canvas';
 import type { DragState, NodePositions, Pos, RefEdge } from '../types';
 
-const FRAME_W = 260;
-const HEAP_W = 240;
-const NODE_HEADER_H = 22;
+const FRAME_W = 320;
+const HEAP_W = 300;
+const NODE_HEADER_H = 28;
 
 function nodeWidth(kind: 'frame' | 'heap'): number {
   return kind === 'frame' ? FRAME_W : HEAP_W;
 }
 
 function rightAnchor(kind: 'frame' | 'heap', pos: Pos): Pos {
-  return { x: pos.x + nodeWidth(kind), y: pos.y + NODE_HEADER_H + 6 };
+  return { x: pos.x + nodeWidth(kind), y: pos.y + NODE_HEADER_H + 8 };
 }
 
 function leftAnchor(pos: Pos): Pos {
-  return { x: pos.x, y: pos.y + NODE_HEADER_H + 6 };
+  return { x: pos.x, y: pos.y + NODE_HEADER_H + 8 };
 }
 
 function getPos(id: string, positions: NodePositions, drag: DragState): Pos | null {

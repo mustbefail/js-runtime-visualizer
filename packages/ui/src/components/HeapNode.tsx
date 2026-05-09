@@ -4,7 +4,7 @@ import { dragStateAtom } from '../atoms/canvas';
 import { useDrag } from '../canvas/useDrag';
 import type { HeapObject, JSValue, Pos } from '../types';
 
-const NODE_W = 240;
+const NODE_W = 300;
 
 function renderValue(v: JSValue): string {
   switch (v.kind) {
@@ -77,10 +77,27 @@ export function HeapNode(props: {
     }
   }
 
-  const headerHeight = 22;
-  const lineHeight = 16;
-  const padding = 6;
-  const props_ = isCollapsed ? [] : Array.from(obj.ownProps.entries());
+  const headerHeight = 28;
+  const lineHeight = 20;
+  const padding = 8;
+
+  function isAutoProtoConstructorBack(): boolean {
+    if (obj.kind !== 'object') return false;
+    const ctor = obj.ownProps.get('constructor');
+    if (!ctor || ctor.kind !== 'ref') return false;
+    const ctorObj = heap.get(ctor.id);
+    if (!ctorObj || ctorObj.kind !== 'function') return false;
+    const ctorProto = ctorObj.ownProps.get('prototype');
+    if (!ctorProto || ctorProto.kind !== 'ref') return false;
+    return ctorProto.id === id;
+  }
+  const isAutoProto = isAutoProtoConstructorBack();
+
+  const props_ = isCollapsed
+    ? []
+    : Array.from(obj.ownProps.entries()).filter(
+        ([k]) => !(isAutoProto && k === 'constructor'),
+      );
   const capturedCount =
     obj.kind === 'function' && obj.source?.capturedBindings && !isCollapsed
       ? obj.source.capturedBindings.size
@@ -115,22 +132,22 @@ export function HeapNode(props: {
       />
       <text
         x={8}
-        y={15}
-        fontSize={11}
+        y={19}
+        fontSize={14}
         fontFamily="JetBrains Mono, monospace"
         fill={labelColor}
         style={{ userSelect: 'none', pointerEvents: 'none' }}
       >
         {primaryLabel}
-        <tspan fill="var(--muted)" fontSize={9}>
+        <tspan fill="var(--muted)" fontSize={11}>
           {' '}
           #{id}
         </tspan>
       </text>
       <text
         x={NODE_W - 8}
-        y={15}
-        fontSize={9}
+        y={19}
+        fontSize={11}
         textAnchor="end"
         fill="var(--muted)"
         onClick={onToggle}
@@ -144,7 +161,7 @@ export function HeapNode(props: {
             key={k}
             x={10}
             y={headerHeight + padding + (i + 1) * lineHeight - 4}
-            fontSize={11}
+            fontSize={13}
             fontFamily="JetBrains Mono, monospace"
             fill="var(--text)"
             style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -156,7 +173,7 @@ export function HeapNode(props: {
         <text
           x={10}
           y={headerHeight + padding + lineHeight - 4}
-          fontSize={10}
+          fontSize={12}
           fontFamily="JetBrains Mono, monospace"
           fill="var(--muted)"
           style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -172,7 +189,7 @@ export function HeapNode(props: {
             <text
               x={10}
               y={headerHeight + padding + (Math.max(1, props_.length) + 1) * lineHeight - 4}
-              fontSize={9}
+              fontSize={12}
               fontFamily="JetBrains Mono, monospace"
               fill="var(--accent2)"
               style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -184,7 +201,7 @@ export function HeapNode(props: {
                 key={`env-${k}`}
                 x={20}
                 y={headerHeight + padding + (Math.max(1, props_.length) + 2 + i) * lineHeight - 4}
-                fontSize={11}
+                fontSize={13}
                 fontFamily="JetBrains Mono, monospace"
                 fill="var(--text)"
                 style={{ pointerEvents: 'none', userSelect: 'none' }}

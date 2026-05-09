@@ -100,4 +100,25 @@ describe('extractRefEdges', () => {
       edgeKind: 'proto',
     });
   });
+
+  it('suppresses the auto-allocated Foo.prototype.constructor back-edge', () => {
+    // Build a snapshot where obj1 is the function and obj2 is its auto-proto,
+    // both linking to each other (the JS auto-allocated pattern).
+    const snap = snapWith({
+      heap: [
+        ['obj1', new Map([['prototype', { kind: 'ref', id: 'obj2' }]])],
+        ['obj2', new Map([['constructor', { kind: 'ref', id: 'obj1' }]])],
+      ],
+    });
+    // Make obj1 a function so the heuristic fires.
+    snap.heap.get('obj1')!.kind = 'function' as never;
+    const edges = extractRefEdges(snap);
+    // Should emit obj1.prototype → obj2, but NOT obj2.constructor → obj1.
+    const fromConstructor = edges.find(
+      (e) => e.fromKind === 'heap' && e.fromId === 'obj2' && e.fromLabel === 'constructor',
+    );
+    expect(fromConstructor).toBeUndefined();
+    const fromPrototype = edges.find((e) => e.fromLabel === 'prototype');
+    expect(fromPrototype).toBeDefined();
+  });
 });

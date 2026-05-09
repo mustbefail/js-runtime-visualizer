@@ -2,10 +2,10 @@ import type { NodePositions, Pos, Snapshot } from '../types';
 
 export const FRAME_X = 30;
 export const FRAME_Y_START = 30;
-export const FRAME_HEIGHT = 130;
-export const HEAP_X_START = 320;
+export const FRAME_HEIGHT = 170;
+export const HEAP_X_START = 400;
 export const HEAP_Y_START = 30;
-export const HEAP_HEIGHT = 130;
+export const HEAP_HEIGHT = 170;
 
 export const frameKey = (index: number): string => `frame-${index}`;
 

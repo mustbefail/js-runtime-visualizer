@@ -5,7 +5,7 @@ import { useDrag } from '../canvas/useDrag';
 import { frameKey } from '../canvas/layout';
 import type { FrameSnapshot, JSValue, Pos } from '../types';
 
-const FRAME_W = 260;
+const FRAME_W = 320;
 
 function renderValue(v: JSValue): string {
   switch (v.kind) {
@@ -53,9 +53,9 @@ export function FrameNode(props: {
 
   const titleColor = isError ? 'var(--bad)' : isTop ? 'var(--accent)' : 'var(--info)';
   const borderColor = isError ? 'var(--bad)' : isTop ? 'var(--accent)' : 'var(--border)';
-  const headerHeight = 22;
-  const lineHeight = 16;
-  const padding = 6;
+  const headerHeight = 28;
+  const lineHeight = 20;
+  const padding = 8;
   const bindings = isCollapsed ? [] : Array.from(frame.bindings.entries());
   const height =
     headerHeight +
@@ -86,8 +86,8 @@ export function FrameNode(props: {
       />
       <text
         x={8}
-        y={15}
-        fontSize={11}
+        y={19}
+        fontSize={14}
         fontFamily="JetBrains Mono, monospace"
         fill={titleColor}
         style={{ userSelect: 'none', pointerEvents: 'none' }}
@@ -97,8 +97,8 @@ export function FrameNode(props: {
       </text>
       <text
         x={FRAME_W - 8}
-        y={15}
-        fontSize={9}
+        y={19}
+        fontSize={11}
         fontFamily="JetBrains Mono, monospace"
         textAnchor="end"
         fill="var(--muted)"
@@ -113,7 +113,7 @@ export function FrameNode(props: {
             key={k}
             x={10}
             y={headerHeight + padding + (i + 1) * lineHeight - 4}
-            fontSize={11}
+            fontSize={13}
             fontFamily="JetBrains Mono, monospace"
             fill="var(--text)"
             style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -125,7 +125,7 @@ export function FrameNode(props: {
         <text
           x={10}
           y={headerHeight + padding + lineHeight - 4}
-          fontSize={10}
+          fontSize={12}
           fontFamily="JetBrains Mono, monospace"
           fill="var(--muted)"
           style={{ pointerEvents: 'none', userSelect: 'none' }}
