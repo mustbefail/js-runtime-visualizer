@@ -6,6 +6,7 @@ import { fromJsLiteral, toBoolean, toNumber } from './values';
 import { EnvironmentRecord } from '../runtime/env';
 import type { IEnvironmentRecord } from '../types';
 import { getHostPrototypes } from '../runtime/builtins';
+import { computeFreeVars } from './free-vars';
 
 export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSValue> {
   switch (node.type) {
@@ -391,6 +392,7 @@ function makeFunctionRef(
       params,
       body: node.body as A.Node,
       isArrow,
+      freeVars: computeFreeVars(node as A.Function),
     },
   });
   // Auto-allocate Foo.prototype = { constructor: Foo }, [[Prototype]] = objectProto.

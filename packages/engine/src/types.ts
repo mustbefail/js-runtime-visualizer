@@ -27,6 +27,9 @@ export type FunctionSource = {
   body: AstNode;
   isArrow: boolean;
   homeObject?: Reference;
+  // Free variables of the function — names referenced from the body but not
+  // declared inside it. Used to filter the live closure-binding view.
+  freeVars?: Set<string>;
   capturedBindings?: Map<string, JSValue>;
 };
 

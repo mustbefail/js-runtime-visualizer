@@ -58,4 +58,27 @@ describe('evaluator — closures', () => {
     );
     expect(tick?.source?.capturedBindings?.get('n')).toEqual({ kind: 'number', value: 2 });
   });
+
+  it('[[Environment]] view contains only free variables, not unrelated outer bindings', () => {
+    const { snapshots } = runCode(`
+      function makeCounter() {
+        let n = 0;
+        let unused = 999;
+        return function tick() { return ++n; };
+      }
+      const counter = makeCounter();
+      counter();
+    `);
+    const last = snapshots[snapshots.length - 1]!;
+    const tick = Array.from(last.heap.values()).find(
+      (o) => o.kind === 'function' && o.source?.name === 'tick',
+    );
+    const captured = tick?.source?.capturedBindings;
+    expect(captured?.has('n')).toBe(true);
+    expect(captured?.has('unused')).toBe(false);
+    expect(captured?.has('console')).toBe(false);
+    expect(captured?.has('Object')).toBe(false);
+    expect(captured?.has('makeCounter')).toBe(false);
+    expect(captured?.has('counter')).toBe(false);
+  });
 });

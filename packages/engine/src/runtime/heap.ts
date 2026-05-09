@@ -64,7 +64,9 @@ export class Heap implements IHeap {
       // live closure bindings at this step, not the values frozen at allocation.
       // Recompute and treat any change as a reason to bust structural sharing.
       const freshBindings =
-        obj.kind === 'function' && obj.closure ? walkClosureBindings(obj.closure) : null;
+        obj.kind === 'function' && obj.closure
+          ? walkClosureBindings(obj.closure, obj.source?.freeVars)
+          : null;
 
       if (freshBindings) {
         const prevBindings = prevEntry?.source?.capturedBindings;

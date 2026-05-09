@@ -1,14 +1,24 @@
 import { type BindingKind, type IEnvironmentRecord, type JSValue, u } from '../types';
 
 // Walks a function's closure environment (and its outers) to produce a flat
-// view of all bindings reachable from inside the function body. Used by the
+// view of bindings reachable from inside the function body. Used by the
 // heap-snapshot pass to render the [[Environment]] block live at each step.
-export function walkClosureBindings(env: IEnvironmentRecord): Map<string, JSValue> {
+//
+// `only`, when provided, restricts the result to names actually referenced
+// inside the function body (its free variables). This filters out scope
+// noise — e.g. globals like `console` or `Object` aren't shown unless the
+// function actually closes over them.
+export function walkClosureBindings(
+  env: IEnvironmentRecord,
+  only?: Set<string>,
+): Map<string, JSValue> {
   const out = new Map<string, JSValue>();
   let cur: IEnvironmentRecord | null = env;
   while (cur) {
     for (const [k, v] of cur.snapshotBindings()) {
-      if (!out.has(k)) out.set(k, v);
+      if (out.has(k)) continue;
+      if (only && !only.has(k)) continue;
+      out.set(k, v);
     }
     cur = cur.outer;
   }
