@@ -56,12 +56,8 @@ function renderObject(obj: HeapObject, id: string, heap: Map<string, HeapObject>
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <span style={{ color: labelColor }}>
-          {primaryLabel}
-        </span>
-        <span style={{ color: 'var(--muted)', fontSize: 10 }}>
-          #{id}
-        </span>
+        <span style={{ color: labelColor }}>{primaryLabel}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 10 }}>#{id}</span>
       </div>
       {Array.from(obj.ownProps.entries()).map(([k, v]) => (
         <div key={k} style={{ paddingLeft: 6, color: 'var(--text)' }}>

@@ -28,9 +28,16 @@ The web UI shell. Vite + React 18 + Reatom + CodeMirror 6.
 - Canvas: solid violet `[[Prototype]]` edges between heap objects.
 - Three new step-event kinds humanised in the snapshot pane: "Walked [[Prototype]] chain", "[[Prototype]] set", "this bound".
 
+## Plan 5 additions (errors + traceback)
+
+- Engine: `throw` / `try` / `catch` / `finally` with proper finally semantics on all completion modes (return, throw, fall-through). New event kinds `error`, `unwind-frame`, `catch`. Frame-leak fix in `invokeFunction` (carry-over from plan 1) — frames pop in a `finally` regardless of completion.
+- UI: `TracebackPanel` overlays the canvas when the current snapshot is an error. Each row is clickable and jumps to that frame's `enter-frame` step. The top frame on the canvas gets a red border at the error step.
+
 ## Not yet (planned)
 
-- Error traceback panel and animated unwinding (plan 5).
+- Lookup-path animation along `[[Prototype]]` edges (engine emits `proto-walk`; UI animation pending).
+- Dotted-grey `.prototype` edges (constructor → its `.prototype` object).
+- Retained closure scope frames as separate canvas nodes (plan 4 ships inline `[[Environment]]` block).
 - Async runtime panels (microtasks, macrotasks) — v2.
 
 ## Develop

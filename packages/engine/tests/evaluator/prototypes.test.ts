@@ -74,9 +74,9 @@ describe('evaluator — prototype-aware member access', () => {
     `);
     const last = snapshots[snapshots.length - 1]!;
     // Find B.prototype and A.prototype by walking back from a B instance.
-    const bInstance = Array.from(last.heap.values()).reverse().find(
-      (o) => o.kind === 'object' && o.prototype !== null && !o.source,
-    );
+    const bInstance = Array.from(last.heap.values())
+      .reverse()
+      .find((o) => o.kind === 'object' && o.prototype !== null && !o.source);
     expect(bInstance).toBeDefined();
     const bProtoRef = bInstance!.prototype!;
     const bProto = last.heap.get(bProtoRef.id)!;

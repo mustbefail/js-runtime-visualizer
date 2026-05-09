@@ -67,7 +67,7 @@ console.log(snapshots.length); // each step recorded as an immutable snapshot
 - [x] **Plan 2** — UI shell: Vite + React + Reatom + CodeMirror, Run button, textual snapshot view, time-travel scrubber, session persisted in `localStorage`. Engine snapshots now share `HeapObject` references across steps. _Completed 2026-05-08._
 - [x] **Plan 3** — canvas visualisation: pan/zoom SVG canvas, draggable frames + heap nodes, reference edges, collapse, position persistence. _Completed 2026-05-08._
 - [x] **Plan 4** — prototypes & inheritance: `Object.create`, `__proto__`, `class`/`extends`/`super`, `new`, `this` binding, `Function.prototype.call`, `var`/function-decl hoisting, logical/conditional/compound operators. Canvas renders `[[Prototype]]` edges and the function's captured `[[Environment]]`. Lookup-path animation and prototype-pollution mode deferred to plan 5. _Completed 2026-05-08._
-- [ ] **Plan 5** — errors & traceback: `throw`/`try`/`catch`, unwind events, animated error propagation on the canvas.
+- [x] **Plan 5** — errors & traceback: `throw`/`try`/`catch`/`finally`, unwind events, `TracebackPanel` with click-to-jump, red error indicator on the active frame, frame-leak fix in `invokeFunction`. Lookup-path animation, dotted-grey `.prototype` edges, retained closure scope frames deferred to a polish plan. _Completed 2026-05-09._
 
 Plans v2/v3/v4 (post-MVP): async runtime (Promises, microtasks, `setTimeout`, `async`/`await`), generators, modules, share-via-URL, GIF export.
 

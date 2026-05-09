@@ -80,7 +80,9 @@ test('drag a frame → reload → position persisted', async ({ page }) => {
   expect(Math.abs(reloadBox.x - (initialBox.x + 200))).toBeLessThan(15);
 });
 
-test('class extends — prototype edge points to parent.prototype, not Object.prototype', async ({ page }) => {
+test('class extends — prototype edge points to parent.prototype, not Object.prototype', async ({
+  page,
+}) => {
   // Seed node positions before the app loads so EdgesLayer renders edges.
   // Reatom withLocalStorage reads from localStorage at atom initialization.
   await page.goto('/');

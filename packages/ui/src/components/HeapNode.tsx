@@ -22,7 +22,12 @@ function renderValue(v: JSValue): string {
   }
 }
 
-export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos; heap: Map<string, HeapObject> }) {
+export function HeapNode(props: {
+  id: string;
+  obj: HeapObject;
+  pos: Pos;
+  heap: Map<string, HeapObject>;
+}) {
   const { id, obj, pos, heap } = props;
   const [collapsed] = useAtom(collapsedIdsAtom);
   const [drag] = useAtom(dragStateAtom);
@@ -117,7 +122,10 @@ export function HeapNode(props: { id: string; obj: HeapObject; pos: Pos; heap: M
         style={{ userSelect: 'none', pointerEvents: 'none' }}
       >
         {primaryLabel}
-        <tspan fill="var(--muted)" fontSize={9}> #{id}</tspan>
+        <tspan fill="var(--muted)" fontSize={9}>
+          {' '}
+          #{id}
+        </tspan>
       </text>
       <text
         x={NODE_W - 8}

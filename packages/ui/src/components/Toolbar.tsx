@@ -42,7 +42,13 @@ export function Toolbar() {
         drill-in
       </label>
       <label
-        style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)' }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          fontSize: 12,
+          color: 'var(--muted)',
+        }}
       >
         <input type="checkbox" checked={showBuiltins} onChange={onToggleBuiltins} />
         show builtins

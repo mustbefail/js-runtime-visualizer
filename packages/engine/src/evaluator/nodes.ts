@@ -953,10 +953,7 @@ function evalSuperReceiver(ctx: Context): JSValue {
   return homeObj.prototype ?? { kind: 'undefined' };
 }
 
-function* evalThrow(
-  node: A.ThrowStatement,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalThrow(node: A.ThrowStatement, ctx: Context): Generator<StepEvent, JSValue> {
   const value = yield* evalNode(node.argument as A.Node, ctx);
   yield {
     kind: 'error',
@@ -966,10 +963,7 @@ function* evalThrow(
   throw new ThrowSignal(value);
 }
 
-function* evalTry(
-  node: A.TryStatement,
-  ctx: Context,
-): Generator<StepEvent, JSValue> {
+function* evalTry(node: A.TryStatement, ctx: Context): Generator<StepEvent, JSValue> {
   let result: JSValue = { kind: 'undefined' };
   let pending:
     | { mode: 'throw'; signal: ThrowSignal }

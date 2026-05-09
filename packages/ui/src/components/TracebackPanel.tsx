@@ -55,9 +55,7 @@ export function TracebackPanel() {
           }}
         >
           <span style={{ color: 'var(--muted)' }}>{i === 0 ? '▶ ' : '↑ '}</span>
-          <span style={{ color: i === 0 ? 'var(--accent)' : 'var(--info)' }}>
-            at {f.fnName}
-          </span>
+          <span style={{ color: i === 0 ? 'var(--accent)' : 'var(--info)' }}>at {f.fnName}</span>
           {f.callSite && (
             <span style={{ color: 'var(--muted)', marginLeft: 6 }}>
               (snippet.js:{f.callSite.line})

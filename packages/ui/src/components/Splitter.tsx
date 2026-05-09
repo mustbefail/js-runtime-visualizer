@@ -32,11 +32,5 @@ export function Splitter() {
     [width, frame],
   );
 
-  return (
-    <div
-      className="splitter"
-      onMouseDown={onMouseDown}
-      title="Drag to resize"
-    />
-  );
+  return <div className="splitter" onMouseDown={onMouseDown} title="Drag to resize" />;
 }

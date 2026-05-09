@@ -11,10 +11,7 @@ import './styles/app.css';
 export function App() {
   const [width] = useAtom(editorWidthAtom);
   return (
-    <div
-      className="app"
-      style={{ ['--editor-width' as never]: `${width}%` }}
-    >
+    <div className="app" style={{ ['--editor-width' as never]: `${width}%` }}>
       <Toolbar />
       <EditorPaneLazy />
       <Splitter />
