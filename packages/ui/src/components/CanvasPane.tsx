@@ -11,6 +11,7 @@ import { FrameNode } from './FrameNode';
 import { HeapNode } from './HeapNode';
 import { EdgesLayer } from './EdgesLayer';
 import { CanvasLegend } from './CanvasLegend';
+import { TracebackPanel } from './TracebackPanel';
 import { EVENT_LABELS } from '../canvas/eventLabels';
 
 export function CanvasPane() {
@@ -79,6 +80,7 @@ export function CanvasPane() {
             : '(no run)'}
         </span>
       </div>
+      <TracebackPanel />
       <svg
         width="100%"
         height="100%"
