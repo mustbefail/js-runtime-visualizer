@@ -82,6 +82,8 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return evalSuperReceiver(ctx);
     case 'ThrowStatement':
       return yield* evalThrow(node as A.ThrowStatement, ctx);
+    case 'TryStatement':
+      return yield* evalTry(node as A.TryStatement, ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -946,6 +948,45 @@ function* evalThrow(
     payload: { value, message: stringify(value) },
   };
   throw new ThrowSignal(value);
+}
+
+function* evalTry(
+  node: A.TryStatement,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  let result: JSValue = { kind: 'undefined' };
+  try {
+    result = yield* evalNode(node.block as A.Node, ctx);
+  } catch (e) {
+    if (e instanceof ThrowSignal && node.handler) {
+      const top = ctx.stack.top();
+      if (!top) throw new Error('Internal: no active frame for try/catch');
+      const catchEnv = new EnvironmentRecord(top.env);
+      const saved = top.env;
+      top.env = catchEnv;
+      if (node.handler.param && node.handler.param.type === 'Identifier') {
+        catchEnv.define(node.handler.param.name, e.value, 'let');
+      }
+      yield {
+        kind: 'catch',
+        loc: locOf(node.handler),
+        payload: {
+          paramName:
+            node.handler.param && node.handler.param.type === 'Identifier'
+              ? node.handler.param.name
+              : undefined,
+        },
+      };
+      try {
+        result = yield* evalNode(node.handler.body as A.Node, ctx);
+      } finally {
+        top.env = saved;
+      }
+    } else {
+      throw e;
+    }
+  }
+  return result;
 }
 
 function snapshotCapturedBindings(env: IEnvironmentRecord): Map<string, JSValue> {
