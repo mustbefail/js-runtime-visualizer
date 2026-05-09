@@ -15,15 +15,17 @@ on the first push.
 
 ### 1. Server bootstrap
 
-SSH into the Hetzner box and run the setup script. Defaults to
-`DEPLOY_USER=root` and `DEPLOY_PATH=/var/www/jsrv`.
+SSH into the Hetzner box as your regular sudo-able user (e.g. `codelance`)
+and run the setup script. `DEPLOY_USER` defaults to `$SUDO_USER`, so the
+deploy directory is owned by the same user the workflow rsyncs as.
 
 ```bash
 # From your laptop:
-scp deploy/setup-server.sh deploy/nginx.conf root@<server-ip>:/tmp/
-ssh root@<server-ip>
-chmod +x /tmp/setup-server.sh
-sudo DEPLOY_USER=root DEPLOY_PATH=/var/www/jsrv /tmp/setup-server.sh
+scp deploy/setup-server.sh deploy/nginx.conf codelance@<server-ip>:/tmp/
+ssh codelance@<server-ip>
+
+# On the server:
+sudo DEPLOY_PATH=/var/www/jsrv bash /tmp/setup-server.sh
 ```
 
 The script installs nginx, writes `/etc/nginx/sites-available/jsrv`,
@@ -37,18 +39,19 @@ Generate a key dedicated to deploys (do **not** reuse your personal one):
 ssh-keygen -t ed25519 -f ~/.ssh/jsrv_deploy_key -N "" -C "jsrv-deploy"
 ```
 
-Add the **public** key to the server:
+Add the **public** key to the server (as your normal SSH user, since root
+login is disabled):
 
 ```bash
-ssh-copy-id -i ~/.ssh/jsrv_deploy_key.pub root@<server-ip>
+ssh-copy-id -i ~/.ssh/jsrv_deploy_key.pub codelance@<server-ip>
 # or manually:
-cat ~/.ssh/jsrv_deploy_key.pub | ssh root@<server-ip> 'cat >> ~/.ssh/authorized_keys'
+cat ~/.ssh/jsrv_deploy_key.pub | ssh codelance@<server-ip> 'cat >> ~/.ssh/authorized_keys'
 ```
 
 Verify:
 
 ```bash
-ssh -i ~/.ssh/jsrv_deploy_key root@<server-ip> 'echo ok'
+ssh -i ~/.ssh/jsrv_deploy_key codelance@<server-ip> 'echo ok'
 ```
 
 ### 3. GitHub secrets
@@ -58,7 +61,7 @@ ssh -i ~/.ssh/jsrv_deploy_key root@<server-ip> 'echo ok'
 | Name              | Value                                                |
 | ----------------- | ---------------------------------------------------- |
 | `DEPLOY_HOST`     | The Hetzner IPv4 (e.g. `203.0.113.42`)               |
-| `DEPLOY_USER`     | `root`                                               |
+| `DEPLOY_USER`     | The non-root SSH user (e.g. `codelance`)             |
 | `DEPLOY_PATH`     | `/var/www/jsrv`                                      |
 | `DEPLOY_SSH_KEY`  | Contents of `~/.ssh/jsrv_deploy_key` (private key)   |
 | `DEPLOY_PORT`     | `22` (only set if you use a non-standard SSH port)   |
