@@ -1,4 +1,4 @@
-import type { NodePositions, Pos, Snapshot } from '../types';
+import type { FrameSnapshot, NodePositions, Pos, Snapshot } from '../types';
 
 export const FRAME_X = 30;
 export const FRAME_Y_START = 30;
@@ -35,4 +35,51 @@ export function layoutExtent(positions: NodePositions): Pos {
     if (y + 140 > maxY) maxY = y + 140;
   }
   return { x: maxX, y: maxY };
+}
+
+// ---------------------------------------------------------------------------
+// Nested frame layout helpers
+// ---------------------------------------------------------------------------
+
+// Width of frame at depth `level` (0 = outermost). Shrinks per level, floored.
+export const NESTED_FRAME_W_OUTER = 380;
+export const NESTED_FRAME_PAD = 8;
+const NESTED_FRAME_W_FLOOR = 240;
+
+export function nestedFrameWidth(level: number): number {
+  const w = NESTED_FRAME_W_OUTER - level * 2 * NESTED_FRAME_PAD;
+  return Math.max(NESTED_FRAME_W_FLOOR, w);
+}
+
+const HEADER = 28;
+const LINE = 20;
+
+// Own (header + bindings only) height for a frame, given how many bindings
+// it has and whether it's collapsed.
+export function frameOwnHeight(bindingsCount: number, collapsed: boolean): number {
+  const rows = collapsed ? 0 : Math.max(1, bindingsCount);
+  return HEADER + (collapsed ? 0 : NESTED_FRAME_PAD + rows * LINE + NESTED_FRAME_PAD);
+}
+
+// Compute absolute positions for every frame in a nested layout, given the
+// root frame's position.
+export function computeNestedFramePositions(
+  callStack: FrameSnapshot[],
+  collapsedIds: Set<string>,
+  rootPos: Pos,
+): Map<string, Pos> {
+  const out = new Map<string, Pos>();
+  let curX = rootPos.x;
+  let curY = rootPos.y;
+  for (let i = 0; i < callStack.length; i++) {
+    const key = frameKey(i);
+    out.set(key, { x: curX, y: curY });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const frame = callStack[i]!;
+    const collapsed = collapsedIds.has(key);
+    const ownH = frameOwnHeight(frame.bindings.size, collapsed);
+    curX += NESTED_FRAME_PAD;
+    curY += ownH;
+  }
+  return out;
 }

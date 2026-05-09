@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 import { useAtom } from '@reatom/react';
 import { currentSnapshotAtom, totalStepsAtom } from '../atoms/derived';
 import { currentStepIndexAtom } from '../atoms/ui';
-import { nodePositionsAtom } from '../atoms/session';
-import { panZoomAtom, showBuiltinsAtom } from '../atoms/canvas';
-import { defaultLayout, frameKey } from '../canvas/layout';
+import { nodePositionsAtom, collapsedIdsAtom } from '../atoms/session';
+import { panZoomAtom, showBuiltinsAtom, dragStateAtom } from '../atoms/canvas';
+import { defaultLayout, frameKey, computeNestedFramePositions } from '../canvas/layout';
 import { extractRefEdges } from '../canvas/refs';
 import { usePanZoom } from '../canvas/usePanZoom';
 import { FrameNode } from './FrameNode';
@@ -21,6 +21,8 @@ export function CanvasPane() {
   const [positions] = useAtom(nodePositionsAtom);
   const [pz] = useAtom(panZoomAtom);
   const [showBuiltins] = useAtom(showBuiltinsAtom);
+  const [collapsed] = useAtom(collapsedIdsAtom);
+  const [drag] = useAtom(dragStateAtom);
   const { onMouseDown, onWheel } = usePanZoom();
 
   const visibleHeap = useMemo(() => {
@@ -39,10 +41,17 @@ export function CanvasPane() {
 
   const visibleHeapIds = useMemo(() => new Set(visibleHeap.map(([id]) => id)), [visibleHeap]);
 
-  const laidOut = useMemo(
-    () => (snap ? defaultLayout(snap, positions) : positions),
-    [snap, positions],
-  );
+  const laidOut = useMemo(() => {
+    if (!snap) return positions;
+    const baseLayout = defaultLayout(snap, positions);
+    const rootKey = frameKey(0);
+    const liveRoot = drag.active && drag.id === rootKey ? drag.pos : null;
+    const rootPos = liveRoot ?? baseLayout.get(rootKey) ?? { x: 30, y: 30 };
+    const nested = computeNestedFramePositions(snap.callStack, collapsed, rootPos);
+    const merged = new Map(baseLayout);
+    for (const [k, v] of nested) merged.set(k, v);
+    return merged;
+  }, [snap, positions, collapsed, drag]);
   const edges = useMemo(() => (snap ? extractRefEdges(snap) : []), [snap]);
 
   const visibleEdges = useMemo(
@@ -116,20 +125,19 @@ export function CanvasPane() {
           {snap && (
             <>
               <EdgesLayer edges={visibleEdges} positions={laidOut} />
-              {snap.callStack.map((frame, i) => {
-                const pos = laidOut.get(frameKey(i));
-                if (!pos) return null;
+              {snap.callStack.length > 0 && (() => {
+                const rootPos = laidOut.get(frameKey(0));
+                if (!rootPos) return null;
                 return (
                   <FrameNode
-                    key={`frame-${i}`}
-                    index={i}
-                    frame={frame}
-                    isTop={i === snap.callStack.length - 1}
-                    isError={snap.eventKind === 'error' && i === snap.callStack.length - 1}
-                    pos={pos}
+                    callStack={snap.callStack}
+                    index={0}
+                    level={0}
+                    pos={rootPos}
+                    isErrorTopFrame={snap.eventKind === 'error'}
                   />
                 );
-              })}
+              })()}
               {visibleHeap.map(([id, obj]) => {
                 const pos = laidOut.get(id);
                 if (!pos) return null;

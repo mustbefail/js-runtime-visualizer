@@ -2,10 +2,13 @@ import { useAtom, useFrame } from '@reatom/react';
 import { collapsedIdsAtom } from '../atoms/session';
 import { dragStateAtom } from '../atoms/canvas';
 import { useDrag } from '../canvas/useDrag';
-import { frameKey } from '../canvas/layout';
+import {
+  frameKey,
+  frameOwnHeight,
+  nestedFrameWidth,
+  NESTED_FRAME_PAD,
+} from '../canvas/layout';
 import type { FrameSnapshot, JSValue, Pos } from '../types';
-
-const FRAME_W = 320;
 
 function renderValue(v: JSValue): string {
   switch (v.kind) {
@@ -23,23 +26,50 @@ function renderValue(v: JSValue): string {
   }
 }
 
+const HEADER = 28;
+const LINE = 20;
+const PAD = NESTED_FRAME_PAD;
+
+// Recursive total height of a frame chain starting at `index`.
+function totalHeight(
+  callStack: FrameSnapshot[],
+  collapsedIds: Set<string>,
+  index: number,
+): number {
+  const frame = callStack[index];
+  if (!frame) return 0;
+  const collapsed = collapsedIds.has(frameKey(index));
+  const own = frameOwnHeight(frame.bindings.size, collapsed);
+  const hasChild = index + 1 < callStack.length;
+  if (!hasChild) return own;
+  return own + PAD + totalHeight(callStack, collapsedIds, index + 1);
+}
+
 export function FrameNode(props: {
+  callStack: FrameSnapshot[];
   index: number;
-  frame: FrameSnapshot;
-  isTop: boolean;
-  isError?: boolean;
+  level: number;
   pos: Pos;
+  isErrorTopFrame: boolean;
 }) {
-  const { index, frame, isTop, isError, pos } = props;
+  const { callStack, index, level, pos, isErrorTopFrame } = props;
   const id = frameKey(index);
   const [collapsed] = useAtom(collapsedIdsAtom);
   const [drag] = useAtom(dragStateAtom);
   const reatomFrame = useFrame();
 
-  // Live position during drag; fall back to static prop when idle.
-  const renderPos = drag.active && drag.id === id ? drag.pos : pos;
+  const frame = callStack[index];
+  if (!frame) return null;
+
+  const isTop = index === callStack.length - 1;
+  const isError = isErrorTopFrame && isTop;
   const isCollapsed = collapsed.has(id);
+
+  // Only the outer (level 0) frame is draggable. Inner frames inherit position
+  // from parent — dragging the root moves everything.
+  const renderPos = level === 0 && drag.active && drag.id === id ? drag.pos : pos;
   const drager = useDrag(id, renderPos);
+  const draggable = level === 0;
 
   const onTitleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -51,15 +81,25 @@ export function FrameNode(props: {
     });
   };
 
-  const titleColor = isError ? 'var(--bad)' : isTop ? 'var(--accent)' : 'var(--info)';
-  const borderColor = isError ? 'var(--bad)' : isTop ? 'var(--accent)' : 'var(--border)';
-  const headerHeight = 28;
-  const lineHeight = 20;
-  const padding = 8;
+  const titleColor = isError
+    ? 'var(--bad)'
+    : isTop
+      ? 'var(--accent)'
+      : 'var(--info)';
+  const borderColor = isError
+    ? 'var(--bad)'
+    : isTop
+      ? 'var(--accent)'
+      : 'var(--border)';
+  const strokeWidth = isError || isTop ? 2 : 1;
+
+  const W = nestedFrameWidth(level);
+  const ownH = frameOwnHeight(frame.bindings.size, isCollapsed);
+  const fullH = totalHeight(callStack, collapsed, index);
   const bindings = isCollapsed ? [] : Array.from(frame.bindings.entries());
-  const height =
-    headerHeight +
-    (isCollapsed ? 0 : padding + Math.max(1, bindings.length) * lineHeight + padding);
+
+  // Position of inner-child frame WITHIN this group's coordinate space.
+  const childInnerPos: Pos = { x: PAD, y: ownH };
 
   return (
     <g
@@ -68,24 +108,24 @@ export function FrameNode(props: {
       transform={`translate(${renderPos.x}, ${renderPos.y})`}
     >
       <rect
-        width={FRAME_W}
-        height={height}
+        width={W}
+        height={fullH}
         rx={6}
         fill="var(--panel)"
         stroke={borderColor}
-        strokeWidth={isError || isTop ? 2 : 1}
+        strokeWidth={strokeWidth}
       />
       <rect
         data-testid="frame-header"
-        width={FRAME_W}
-        height={headerHeight}
+        width={W}
+        height={HEADER}
         rx={6}
         fill="rgba(0,0,0,0.2)"
-        onMouseDown={drager.onMouseDown}
-        style={{ cursor: 'move' }}
+        onMouseDown={draggable ? drager.onMouseDown : undefined}
+        style={{ cursor: draggable ? 'move' : 'default' }}
       />
       <text
-        x={8}
+        x={10}
         y={19}
         fontSize={14}
         fontFamily="JetBrains Mono, monospace"
@@ -96,7 +136,7 @@ export function FrameNode(props: {
         {frame.fnName}
       </text>
       <text
-        x={FRAME_W - 8}
+        x={W - 10}
         y={19}
         fontSize={11}
         fontFamily="JetBrains Mono, monospace"
@@ -111,8 +151,8 @@ export function FrameNode(props: {
         bindings.map(([k, v], i) => (
           <text
             key={k}
-            x={10}
-            y={headerHeight + padding + (i + 1) * lineHeight - 4}
+            x={12}
+            y={HEADER + PAD + (i + 1) * LINE - 4}
             fontSize={13}
             fontFamily="JetBrains Mono, monospace"
             fill="var(--text)"
@@ -123,8 +163,8 @@ export function FrameNode(props: {
         ))}
       {!isCollapsed && bindings.length === 0 && (
         <text
-          x={10}
-          y={headerHeight + padding + lineHeight - 4}
+          x={12}
+          y={HEADER + PAD + LINE - 4}
           fontSize={12}
           fontFamily="JetBrains Mono, monospace"
           fill="var(--muted)"
@@ -132,6 +172,15 @@ export function FrameNode(props: {
         >
           (no bindings)
         </text>
+      )}
+      {!isCollapsed && index + 1 < callStack.length && (
+        <FrameNode
+          callStack={callStack}
+          index={index + 1}
+          level={level + 1}
+          pos={childInnerPos}
+          isErrorTopFrame={isErrorTopFrame}
+        />
       )}
     </g>
   );
