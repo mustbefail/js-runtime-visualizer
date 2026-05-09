@@ -9,7 +9,7 @@ export function CanvasLegend() {
         border: '1px solid var(--border)',
         borderRadius: 6,
         padding: 8,
-        fontSize: 10,
+        fontSize: 16,
         fontFamily: 'JetBrains Mono, monospace',
         color: 'var(--muted)',
         pointerEvents: 'none',

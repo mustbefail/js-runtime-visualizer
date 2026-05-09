@@ -138,7 +138,7 @@ export function FrameNode(props: {
       <text
         x={W - 10}
         y={20}
-        fontSize={16}
+        fontSize={20}
         fontFamily="JetBrains Mono, monospace"
         textAnchor="end"
         fill="var(--muted)"

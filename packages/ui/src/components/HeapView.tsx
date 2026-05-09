@@ -52,7 +52,7 @@ function renderObject(obj: HeapObject, id: string, heap: Map<string, HeapObject>
         borderRadius: 6,
         padding: 6,
         fontFamily: 'JetBrains Mono, monospace',
-        fontSize: 12,
+        fontSize: 14,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>

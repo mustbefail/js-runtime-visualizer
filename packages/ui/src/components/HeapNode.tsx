@@ -147,7 +147,7 @@ export function HeapNode(props: {
       <text
         x={NODE_W - 8}
         y={20}
-        fontSize={16}
+        fontSize={20}
         textAnchor="end"
         fill="var(--muted)"
         onClick={onToggle}
