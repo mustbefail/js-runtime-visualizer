@@ -15,7 +15,7 @@ test('type code → click Run → canvas shows nodes; step counter advances', as
   await page.getByRole('button', { name: 'Run' }).click();
 
   // Step counter is visible and shows "1 / N" (we land on step 0 = first event).
-  const snapshotPane = page.locator('.snapshot');
+  const snapshotPane = page.getByTestId('snapshot-pane');
   await expect(snapshotPane).toContainText(/step 1 \/ \d+/);
 
   // The canvas SVG is rendered.
@@ -111,7 +111,7 @@ test('class extends — prototype edge points to parent.prototype, not Object.pr
   await page.getByRole('button', { name: 'Run' }).click();
   await page.getByRole('button', { name: '⏭' }).click();
 
-  const snapshotPane = page.locator('.snapshot');
+  const snapshotPane = page.getByTestId('snapshot-pane');
   await expect(snapshotPane.locator('svg')).toBeVisible();
 
   // Legend always shows [[Prototype]] entry.
@@ -147,7 +147,7 @@ test('throw caught — TracebackPanel appears at error step', async ({ page }) =
   // Step forward through the run looking for the "Error thrown" header text.
   // We click the "Next step" button until the snapshot pane includes that text
   // (the third button in the scrubber row, marked "▶" with no exact title).
-  const snapshotPane = page.locator('.snapshot');
+  const snapshotPane = page.getByTestId('snapshot-pane');
   let found = false;
   for (let i = 0; i < 30; i++) {
     const text = await snapshotPane.textContent();

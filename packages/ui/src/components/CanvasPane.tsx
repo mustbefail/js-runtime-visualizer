@@ -58,7 +58,7 @@ export function CanvasPane() {
   );
 
   return (
-    <div className="snapshot" style={{ padding: 0, position: 'relative' }}>
+    <div className="snapshot" data-testid="snapshot-pane" style={{ padding: 0, position: 'relative' }}>
       <div
         style={{
           position: 'absolute',

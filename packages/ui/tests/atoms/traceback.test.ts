@@ -73,4 +73,21 @@ describe('tracebackAtom', () => {
     const tb = tracebackAtom();
     expect(tb?.caught).toBe(true);
   });
+
+  it('returns null when scrubbed past the catch step', async () => {
+    const { codeAtom } = await import('../../src/atoms/session');
+    const { currentStepIndexAtom } = await import('../../src/atoms/ui');
+    const { tracebackAtom } = await import('../../src/atoms/derived');
+    const { snapshotsAtom } = await import('../../src/atoms/engine');
+    const { runAction } = await import('../../src/atoms/actions');
+
+    codeAtom.set(`try { throw 'x'; } catch (e) {}`);
+    runAction();
+    const snaps = snapshotsAtom();
+    const catchIdx = snaps.findIndex((s) => s.eventKind === 'catch');
+    expect(catchIdx).toBeGreaterThan(-1);
+    // Scrub to a step AFTER the catch — traceback should clear.
+    currentStepIndexAtom.set(catchIdx + 1);
+    expect(tracebackAtom()).toBeNull();
+  });
 });
