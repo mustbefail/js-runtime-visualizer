@@ -102,7 +102,10 @@ export type EventKind =
   | 'console'
   | 'proto-walk'
   | 'proto-set'
-  | 'bind-this';
+  | 'bind-this'
+  | 'error'
+  | 'unwind-frame'
+  | 'catch';
 
 export type StepEvent = {
   kind: EventKind;
@@ -189,3 +192,11 @@ export const nul = (): Primitive => ({ kind: 'null' });
 export const num = (n: number): Primitive => ({ kind: 'number', value: n });
 export const str = (s: string): Primitive => ({ kind: 'string', value: s });
 export const bool = (b: boolean): Primitive => ({ kind: 'boolean', value: b });
+
+// Payload carried by the `error` event. `value` is whatever the user threw
+// (often a string or a host-allocated Error-like object), already represented
+// as a JSValue. `message` is a best-effort string for display.
+export type ErrorPayload = {
+  value: JSValue;
+  message: string;
+};
