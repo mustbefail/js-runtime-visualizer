@@ -53,7 +53,7 @@ export function CanvasPane() {
 
   const laidOut = useMemo(() => {
     if (!snap) return positions;
-    const baseLayout = defaultLayout(snap, positions);
+    const baseLayout = defaultLayout(snap, positions, visibleHeapIds);
     const rootKey = frameKey(0);
     const liveRoot = drag.active && drag.id === rootKey ? drag.pos : null;
     const rootPos = liveRoot ?? baseLayout.get(rootKey) ?? { x: 30, y: 30 };
@@ -61,7 +61,7 @@ export function CanvasPane() {
     const merged = new Map(baseLayout);
     for (const [k, v] of nested) merged.set(k, v);
     return merged;
-  }, [snap, positions, collapsed, drag, visibleCallStack]);
+  }, [snap, positions, collapsed, drag, visibleCallStack, visibleHeapIds]);
   const edges = useMemo(() => (snap ? extractRefEdges(snap) : []), [snap]);
 
   const visibleEdges = useMemo(

@@ -9,7 +9,11 @@ export const HEAP_HEIGHT = 170;
 
 export const frameKey = (index: number): string => `frame-${index}`;
 
-export function defaultLayout(snap: Snapshot, existing: NodePositions): NodePositions {
+export function defaultLayout(
+  snap: Snapshot,
+  existing: NodePositions,
+  visibleHeapIds?: Set<string>,
+): NodePositions {
   const out: NodePositions = new Map(existing);
   snap.callStack.forEach((_frame, i) => {
     const key = frameKey(i);
@@ -17,8 +21,11 @@ export function defaultLayout(snap: Snapshot, existing: NodePositions): NodePosi
       out.set(key, { x: FRAME_X, y: FRAME_Y_START + i * FRAME_HEIGHT });
     }
   });
+  // Only the heap entries that will be rendered count toward the row index;
+  // otherwise hidden builtins push the first visible node far off-screen.
   let heapIndex = 0;
   for (const [id] of snap.heap) {
+    if (visibleHeapIds && !visibleHeapIds.has(id)) continue;
     if (!out.has(id)) {
       out.set(id, { x: HEAP_X_START, y: HEAP_Y_START + heapIndex * HEAP_HEIGHT });
     }
