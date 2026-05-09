@@ -4,7 +4,12 @@ import { currentSnapshotAtom, totalStepsAtom } from '../atoms/derived';
 import { currentStepIndexAtom } from '../atoms/ui';
 import { nodePositionsAtom, collapsedIdsAtom } from '../atoms/session';
 import { panZoomAtom, showBuiltinsAtom, dragStateAtom } from '../atoms/canvas';
-import { defaultLayout, frameKey, computeNestedFramePositions } from '../canvas/layout';
+import {
+  defaultLayout,
+  frameKey,
+  computeNestedFramePositions,
+  filterBuiltinBindings,
+} from '../canvas/layout';
 import { extractRefEdges } from '../canvas/refs';
 import { usePanZoom } from '../canvas/usePanZoom';
 import { FrameNode } from './FrameNode';
@@ -41,17 +46,22 @@ export function CanvasPane() {
 
   const visibleHeapIds = useMemo(() => new Set(visibleHeap.map(([id]) => id)), [visibleHeap]);
 
+  const visibleCallStack = useMemo(
+    () => (snap ? filterBuiltinBindings(snap.callStack, snap.heap, showBuiltins) : []),
+    [snap, showBuiltins],
+  );
+
   const laidOut = useMemo(() => {
     if (!snap) return positions;
     const baseLayout = defaultLayout(snap, positions);
     const rootKey = frameKey(0);
     const liveRoot = drag.active && drag.id === rootKey ? drag.pos : null;
     const rootPos = liveRoot ?? baseLayout.get(rootKey) ?? { x: 30, y: 30 };
-    const nested = computeNestedFramePositions(snap.callStack, collapsed, rootPos);
+    const nested = computeNestedFramePositions(visibleCallStack, collapsed, rootPos);
     const merged = new Map(baseLayout);
     for (const [k, v] of nested) merged.set(k, v);
     return merged;
-  }, [snap, positions, collapsed, drag]);
+  }, [snap, positions, collapsed, drag, visibleCallStack]);
   const edges = useMemo(() => (snap ? extractRefEdges(snap) : []), [snap]);
 
   const visibleEdges = useMemo(
@@ -125,12 +135,12 @@ export function CanvasPane() {
           {snap && (
             <>
               <EdgesLayer edges={visibleEdges} positions={laidOut} />
-              {snap.callStack.length > 0 && (() => {
+              {visibleCallStack.length > 0 && (() => {
                 const rootPos = laidOut.get(frameKey(0));
                 if (!rootPos) return null;
                 return (
                   <FrameNode
-                    callStack={snap.callStack}
+                    callStack={visibleCallStack}
                     index={0}
                     level={0}
                     pos={rootPos}

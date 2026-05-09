@@ -146,8 +146,8 @@ export function HeapNode(props: {
       </text>
       <text
         x={NODE_W - 8}
-        y={19}
-        fontSize={11}
+        y={20}
+        fontSize={16}
         textAnchor="end"
         fill="var(--muted)"
         onClick={onToggle}
@@ -173,7 +173,7 @@ export function HeapNode(props: {
         <text
           x={10}
           y={headerHeight + padding + lineHeight - 4}
-          fontSize={12}
+          fontSize={13}
           fontFamily="JetBrains Mono, monospace"
           fill="var(--muted)"
           style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -189,7 +189,7 @@ export function HeapNode(props: {
             <text
               x={10}
               y={headerHeight + padding + (Math.max(1, props_.length) + 1) * lineHeight - 4}
-              fontSize={12}
+              fontSize={13}
               fontFamily="JetBrains Mono, monospace"
               fill="var(--accent2)"
               style={{ pointerEvents: 'none', userSelect: 'none' }}

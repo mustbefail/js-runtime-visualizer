@@ -1,4 +1,4 @@
-import type { FrameSnapshot, NodePositions, Pos, Snapshot } from '../types';
+import type { FrameSnapshot, HeapObject, JSValue, NodePositions, Pos, Snapshot } from '../types';
 
 export const FRAME_X = 30;
 export const FRAME_Y_START = 30;
@@ -59,6 +59,28 @@ const LINE = 20;
 export function frameOwnHeight(bindingsCount: number, collapsed: boolean): number {
   const rows = collapsed ? 0 : Math.max(1, bindingsCount);
   return HEADER + (collapsed ? 0 : NESTED_FRAME_PAD + rows * LINE + NESTED_FRAME_PAD);
+}
+
+// Returns a view of the call stack with builtin bindings stripped from the
+// global frame (index 0) when `showBuiltins` is false. Keeps every other
+// frame untouched. Used by both layout and rendering so the visible row
+// count and the actual rendered rows stay in sync.
+export function filterBuiltinBindings(
+  callStack: FrameSnapshot[],
+  heap: Map<string, HeapObject>,
+  showBuiltins: boolean,
+): FrameSnapshot[] {
+  if (showBuiltins || callStack.length === 0) return callStack;
+  const out = callStack.slice();
+  const global = out[0];
+  if (!global) return out;
+  const filtered = new Map<string, JSValue>();
+  for (const [k, v] of global.bindings) {
+    if (v.kind === 'ref' && heap.get(v.id)?.builtin) continue;
+    filtered.set(k, v);
+  }
+  out[0] = { ...global, bindings: filtered };
+  return out;
 }
 
 // Compute absolute positions for every frame in a nested layout, given the

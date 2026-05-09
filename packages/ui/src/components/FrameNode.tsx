@@ -137,8 +137,8 @@ export function FrameNode(props: {
       </text>
       <text
         x={W - 10}
-        y={19}
-        fontSize={11}
+        y={20}
+        fontSize={16}
         fontFamily="JetBrains Mono, monospace"
         textAnchor="end"
         fill="var(--muted)"
@@ -165,7 +165,7 @@ export function FrameNode(props: {
         <text
           x={12}
           y={HEADER + PAD + LINE - 4}
-          fontSize={12}
+          fontSize={13}
           fontFamily="JetBrains Mono, monospace"
           fill="var(--muted)"
           style={{ pointerEvents: 'none', userSelect: 'none' }}
