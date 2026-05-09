@@ -38,6 +38,18 @@ const cases: { name: string; code: string }[] = [
       return c();
     `,
   },
+  {
+    name: 'try/catch returns from catch',
+    code: `try { throw 'boom'; } catch (e) { return e + '!'; } return 'unreached';`,
+  },
+  {
+    name: 'try/finally — finally runs after return',
+    code: `let log = ''; try { return 'r'; } finally { log = 'f'; } /* unreached */`,
+  },
+  {
+    name: 'nested try — inner finally runs before outer catch',
+    code: `let log = ''; try { try { throw 'x'; } finally { log += 'F1;'; } } catch (e) { log += 'C(' + e + ');'; } return log;`,
+  },
 ];
 
 describe('cross-check engine vs real V8', () => {
