@@ -20,6 +20,7 @@ export class SnapshotStore implements ISnapshotStore {
         heap,
         consoleOut: [...input.consoleOut],
         highlights: { ...input.highlights },
+        ...(input.errorMessage !== undefined ? { errorMessage: input.errorMessage } : {}),
       },
       true,
     );

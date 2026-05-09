@@ -137,6 +137,7 @@ export type Snapshot = {
   heap: Map<string, HeapObject>;
   consoleOut: string[];
   highlights: SnapshotHighlights;
+  errorMessage?: string;
 };
 
 export type CaptureInput = {
@@ -146,6 +147,7 @@ export type CaptureInput = {
   stack: ICallStack;
   consoleOut: string[];
   highlights: SnapshotHighlights;
+  errorMessage?: string;
 };
 
 export interface ISnapshotStore {

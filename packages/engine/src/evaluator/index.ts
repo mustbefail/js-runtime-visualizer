@@ -63,6 +63,12 @@ export function runCode(code: string, options: RunOptions = {}): RunResult {
       stack,
       consoleOut: ctx.consoleOut,
       highlights: {},
+      ...(event.kind === 'error' &&
+      event.payload &&
+      typeof event.payload === 'object' &&
+      'message' in event.payload
+        ? { errorMessage: String((event.payload as { message?: unknown }).message ?? '') }
+        : {}),
     });
   }
 

@@ -1,4 +1,4 @@
-import type { Snapshot, JSValue } from '@js-runtime-visualizer/engine';
+import type { Snapshot, JSValue, SourceLoc } from '@js-runtime-visualizer/engine';
 
 // Re-export engine types that UI components consume so components import
 // everything from one `../types` location, in line with the project's
@@ -55,3 +55,20 @@ export type PanZoom = { panX: number; panY: number; scale: number };
 
 // Drag transient state — null when no node is being dragged.
 export type DragState = { active: false } | { active: true; id: string; pos: Pos };
+
+// =============================================================================
+// Traceback (plan 5)
+// =============================================================================
+
+export type TracebackEntry = {
+  fnName: string;
+  callSite: SourceLoc | null;
+  enterStep: number;
+};
+
+export type Traceback = {
+  errorStep: number;
+  message: string;
+  frames: TracebackEntry[];
+  caught: boolean;
+};
