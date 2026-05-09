@@ -11,7 +11,7 @@ describe('evaluator — try/finally', () => {
     expect(finalValue).toEqual({ kind: 'string', value: 'try;fin;' });
   });
   it('finally runs after an uncaught throw and the throw still propagates', () => {
-    expect(() =>
+    expect(
       runCode(`
         let log = '';
         try {
@@ -20,8 +20,8 @@ describe('evaluator — try/finally', () => {
           if (log !== 'fin;') throw 'finally did not run';
           throw e;
         }
-      `),
-    ).toThrow(/boom/);
+      `).runtimeError?.message,
+    ).toMatch(/boom/);
   });
   it('finally runs after a return from the try body', () => {
     const { finalValue } = runCode(`

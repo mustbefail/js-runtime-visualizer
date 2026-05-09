@@ -9,10 +9,10 @@ export const runAction = action(() => {
   const code = codeAtom();
   const drillIn = drillInAtom();
   try {
-    const { snapshots, finalValue } = runCode(code, { drillIn });
-    snapshotsAtom.set(snapshots);
-    finalValueAtom.set(finalValue);
-    runErrorAtom.set(null);
+    const result = runCode(code, { drillIn });
+    snapshotsAtom.set(result.snapshots);
+    finalValueAtom.set(result.finalValue);
+    runErrorAtom.set(result.runtimeError ? result.runtimeError.message : null);
     currentStepIndexAtom.set(0);
     isPlayingAtom.set(false);
     panZoomAtom.set({ panX: 0, panY: 0, scale: 1 });

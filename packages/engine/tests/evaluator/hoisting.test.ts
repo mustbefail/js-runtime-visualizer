@@ -30,6 +30,6 @@ describe('evaluator — hoisting', () => {
     expect(finalValue).toEqual({ kind: 'string', value: 'hi' });
   });
   it('let and const are NOT hoisted (TDZ)', () => {
-    expect(() => runCode('const r = x; let x = 1;')).toThrow();
+    expect(runCode('const r = x; let x = 1;').runtimeError).toBeDefined();
   });
 });

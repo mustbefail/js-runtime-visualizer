@@ -358,11 +358,25 @@ class ReturnSignal {
 
 export class ThrowSignal extends Error {
   public readonly value: JSValue;
-  constructor(value: JSValue) {
-    super(stringify(value));
+  constructor(value: JSValue, message: string) {
+    super(message);
     this.name = 'ThrowSignal';
     this.value = value;
   }
+}
+
+// Renders a thrown JSValue as a human-readable string. For Error-like host
+// objects (anything with a string `message` own prop), uses that message —
+// "[object]" would not be useful in the TracebackPanel or runtimeError.
+function errorMessageOf(v: JSValue, ctx: Context): string {
+  if (v.kind === 'ref') {
+    const obj = ctx.heap.get(v.id);
+    const msg = obj?.ownProps.get('message');
+    if (msg && msg.kind === 'string') return msg.value;
+    const name = obj?.ownProps.get('name');
+    if (name && name.kind === 'string') return name.value;
+  }
+  return stringify(v);
 }
 
 function makeFunctionRef(
@@ -690,13 +704,20 @@ function* invokeFunction(
   ctx: Context,
 ): Generator<StepEvent, JSValue> {
   if (fnObj.native) {
-    const result = fnObj.native(args, { consoleOut: ctx.consoleOut });
-    const lastLine = ctx.consoleOut[ctx.consoleOut.length - 1];
-    yield {
-      kind: 'console',
-      loc: locOf(node),
-      payload: { line: lastLine },
-    };
+    const before = ctx.consoleOut.length;
+    const result = fnObj.native(args, {
+      consoleOut: ctx.consoleOut,
+      thisValue,
+      heap: ctx.heap,
+    });
+    if (ctx.consoleOut.length > before) {
+      const lastLine = ctx.consoleOut[ctx.consoleOut.length - 1];
+      yield {
+        kind: 'console',
+        loc: locOf(node),
+        payload: { line: lastLine },
+      };
+    }
     return result;
   }
   if (!fnObj.source || !fnObj.closure) {
@@ -739,6 +760,10 @@ function* invokeFunction(
       pendingThrow = e;
       completion = 'throw';
     } else {
+      // Non-signal JS error (e.g. ReferenceError from a missing identifier).
+      // Mark the frame as throwing so the finally block emits unwind-frame
+      // instead of leave-frame, then re-raise so runCode can record it.
+      completion = 'throw';
       throw e;
     }
   } finally {
@@ -956,12 +981,13 @@ function evalSuperReceiver(ctx: Context): JSValue {
 
 function* evalThrow(node: A.ThrowStatement, ctx: Context): Generator<StepEvent, JSValue> {
   const value = yield* evalNode(node.argument as A.Node, ctx);
+  const message = errorMessageOf(value, ctx);
   yield {
     kind: 'error',
     loc: locOf(node),
-    payload: { value, message: stringify(value) },
+    payload: { value, message },
   };
-  throw new ThrowSignal(value);
+  throw new ThrowSignal(value, message);
 }
 
 function* evalTry(node: A.TryStatement, ctx: Context): Generator<StepEvent, JSValue> {

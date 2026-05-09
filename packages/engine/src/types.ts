@@ -35,6 +35,8 @@ export type FunctionSource = {
 
 export type NativeCtx = {
   consoleOut: string[];
+  thisValue: JSValue;
+  heap: IHeap;
 };
 
 export type NativeFn = (args: JSValue[], ctx: NativeCtx) => JSValue;
@@ -185,6 +187,9 @@ export type RunOptions = { drillIn?: boolean };
 export type RunResult = {
   snapshots: Snapshot[];
   finalValue: JSValue;
+  // Set when execution terminated via an uncaught throw. Snapshots are still
+  // returned so the UI can scrub through the unwind.
+  runtimeError?: { message: string };
 };
 
 // =============================================================================

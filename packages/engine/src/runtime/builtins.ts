@@ -127,11 +127,59 @@ export function seedBuiltins(heap: IHeap, globalEnv: IEnvironmentRecord): void {
     builtin: true,
   });
 
-  // 9. Define globals.
+  // 9. Error constructor — minimal model of `new Error(message)`. Allocates
+  //    a host-side prototype, then a constructor whose native body writes
+  //    `message` and `name` onto the freshly constructed instance (which
+  //    `evalNew` allocates with [[Prototype]] = Error.prototype before
+  //    calling us). When invoked without `new`, no instance is bound, so
+  //    we allocate one ourselves and return it.
+  const errorProto = heap.allocate({
+    kind: 'object',
+    ownProps: new Map<string, JSValue>([
+      ['name', { kind: 'string', value: 'Error' }],
+      ['message', { kind: 'string', value: '' }],
+    ]),
+    prototype: objectProto,
+    builtin: true,
+  });
+  const errorNative: NativeFn = (args, nctx) => {
+    const messageArg = args[0];
+    const message: JSValue =
+      messageArg && messageArg.kind === 'string'
+        ? messageArg
+        : messageArg && messageArg.kind === 'number'
+          ? { kind: 'string', value: String(messageArg.value) }
+          : { kind: 'string', value: '' };
+    let target: Reference;
+    if (nctx.thisValue.kind === 'ref') {
+      target = nctx.thisValue;
+    } else {
+      target = nctx.heap.allocate({
+        kind: 'object',
+        ownProps: new Map(),
+        prototype: errorProto,
+      });
+    }
+    nctx.heap.setProp(target.id, 'message', message);
+    return target;
+  };
+  const errorCtor = heap.allocate({
+    kind: 'function',
+    ownProps: new Map<string, JSValue>([['prototype', errorProto]]),
+    prototype: functionProto,
+    native: errorNative,
+    builtin: true,
+  });
+  // Set Error.prototype.constructor = Error.
+  const errorProtoObj = heap.get(errorProto.id)!;
+  errorProtoObj.ownProps.set('constructor', errorCtor);
+
+  // 10. Define globals.
   globalEnv.define('console', consoleObj, 'const');
   globalEnv.define('Object', objectCtor, 'const');
+  globalEnv.define('Error', errorCtor, 'const');
 
-  // 10. Stash references so the evaluator can use them when allocating literals.
+  // 11. Stash references so the evaluator can use them when allocating literals.
   attachHostPrototypes(heap, { objectProto, functionProto, arrayProto });
 }
 

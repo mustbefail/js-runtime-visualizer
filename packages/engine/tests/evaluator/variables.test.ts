@@ -13,7 +13,7 @@ describe('evaluator — variables and assignment', () => {
   });
 
   it('rejects assignment to const', () => {
-    expect(() => runCode('const x = 1; x = 2;')).toThrow(/const/i);
+    expect(runCode('const x = 1; x = 2;').runtimeError?.message).toMatch(/const/i);
   });
 
   it('emits assign events', () => {
@@ -23,6 +23,6 @@ describe('evaluator — variables and assignment', () => {
   });
 
   it('throws ReferenceError for undeclared identifier', () => {
-    expect(() => runCode('y;')).toThrow(/y is not defined/i);
+    expect(runCode('y;').runtimeError?.message).toMatch(/y is not defined/i);
   });
 });

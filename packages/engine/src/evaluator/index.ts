@@ -49,28 +49,52 @@ export function runCode(code: string, options: RunOptions = {}): RunResult {
 
   const gen = evalNode(parsed.ast, ctx);
   let last: JSValue = { kind: 'undefined' };
-  for (;;) {
-    const step = gen.next();
-    if (step.done) {
-      last = step.value;
-      break;
+  let lastLoc: SourceLoc = initialLoc;
+  let runtimeError: { message: string } | undefined;
+  try {
+    for (;;) {
+      const step = gen.next();
+      if (step.done) {
+        last = step.value;
+        break;
+      }
+      const event: StepEvent = step.value;
+      lastLoc = event.loc;
+      store.capture({
+        eventKind: event.kind,
+        loc: event.loc,
+        heap,
+        stack,
+        consoleOut: ctx.consoleOut,
+        highlights: {},
+        ...(event.kind === 'error' &&
+        event.payload &&
+        typeof event.payload === 'object' &&
+        'message' in event.payload
+          ? { errorMessage: String((event.payload as { message?: unknown }).message ?? '') }
+          : {}),
+      });
     }
-    const event: StepEvent = step.value;
+  } catch (e) {
+    // Uncaught throw escaped the program. The evaluator may have already
+    // emitted an `error` event (user's `throw`); engine-internal errors
+    // (e.g. ReferenceError from a missing identifier) bypass that path,
+    // so we record a synthetic error snapshot here unconditionally so the
+    // UI always has something to scrub to.
+    const message = e instanceof Error ? e.message : String(e);
     store.capture({
-      eventKind: event.kind,
-      loc: event.loc,
+      eventKind: 'error',
+      loc: lastLoc,
       heap,
       stack,
       consoleOut: ctx.consoleOut,
       highlights: {},
-      ...(event.kind === 'error' &&
-      event.payload &&
-      typeof event.payload === 'object' &&
-      'message' in event.payload
-        ? { errorMessage: String((event.payload as { message?: unknown }).message ?? '') }
-        : {}),
+      errorMessage: message,
     });
+    runtimeError = { message };
   }
 
-  return { snapshots: store.all(), finalValue: last };
+  return runtimeError
+    ? { snapshots: store.all(), finalValue: last, runtimeError }
+    : { snapshots: store.all(), finalValue: last };
 }
