@@ -721,6 +721,8 @@ function* invokeFunction(
     yield { kind: 'bind-this', loc: locOf(node), payload: { thisValue } };
   }
   let returnValue: JSValue = { kind: 'undefined' };
+  let completion: 'normal' | 'return' | 'throw' = 'normal';
+  let pendingThrow: ThrowSignal | null = null;
   try {
     const body = fnObj.source.body;
     if (fnObj.source.isArrow && body.type !== 'BlockStatement') {
@@ -731,16 +733,30 @@ function* invokeFunction(
   } catch (e) {
     if (e instanceof ReturnSignal) {
       returnValue = e.value;
+      completion = 'return';
+    } else if (e instanceof ThrowSignal) {
+      pendingThrow = e;
+      completion = 'throw';
     } else {
       throw e;
     }
+  } finally {
+    ctx.stack.pop();
+    if (completion === 'throw') {
+      yield {
+        kind: 'unwind-frame',
+        loc: locOf(node),
+        payload: { fnName: fnObj.source?.name },
+      };
+    } else {
+      yield {
+        kind: 'leave-frame',
+        loc: locOf(node),
+        payload: { returnValue },
+      };
+    }
   }
-  ctx.stack.pop();
-  yield {
-    kind: 'leave-frame',
-    loc: locOf(node),
-    payload: { returnValue },
-  };
+  if (pendingThrow) throw pendingThrow;
   return returnValue;
 }
 

@@ -14,4 +14,15 @@ describe('evaluator — throw (uncaught)', () => {
       `),
     ).toThrow(/from inner/i);
   });
+
+  it('emits unwind-frame for each frame popped during an uncaught throw', () => {
+    const result = runCode(`
+      function inner() { throw 'boom'; }
+      function outer() { inner(); }
+      try { outer(); } catch (e) {}
+    `);
+    const kinds = result.snapshots.map((s) => s.eventKind);
+    expect(kinds.filter((k) => k === 'unwind-frame').length).toBeGreaterThanOrEqual(2);
+    expect(kinds).toContain('catch');
+  });
 });
