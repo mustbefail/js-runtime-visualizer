@@ -27,7 +27,7 @@ describe('evaluator — closures', () => {
     expect(finalValue).toEqual({ kind: 'number', value: 1 });
   });
 
-  it('function HeapObject snapshots its capturedBindings at allocation time', () => {
+  it('function HeapObject capturedBindings tracks live closure values across steps', () => {
     const { snapshots } = runCode(`
       let n = 0;
       const f = function () { return n; };
@@ -39,6 +39,23 @@ describe('evaluator — closures', () => {
     );
     expect(fnEntry).toBeDefined();
     const captured = fnEntry?.source?.capturedBindings;
-    expect(captured?.get('n')).toEqual({ kind: 'number', value: 0 });
+    expect(captured?.get('n')).toEqual({ kind: 'number', value: 999 });
+  });
+
+  it('makeCounter — captured n in returned tick advances with each call', () => {
+    const { snapshots } = runCode(`
+      function makeCounter() {
+        let n = 0;
+        return function tick() { return ++n; };
+      }
+      const counter = makeCounter();
+      counter();
+      counter();
+    `);
+    const last = snapshots[snapshots.length - 1]!;
+    const tick = Array.from(last.heap.values()).find(
+      (o) => o.kind === 'function' && o.source?.name === 'tick',
+    );
+    expect(tick?.source?.capturedBindings?.get('n')).toEqual({ kind: 'number', value: 2 });
   });
 });

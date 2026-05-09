@@ -1,5 +1,45 @@
 import { type BindingKind, type IEnvironmentRecord, type JSValue, u } from '../types';
 
+// Walks a function's closure environment (and its outers) to produce a flat
+// view of all bindings reachable from inside the function body. Used by the
+// heap-snapshot pass to render the [[Environment]] block live at each step.
+export function walkClosureBindings(env: IEnvironmentRecord): Map<string, JSValue> {
+  const out = new Map<string, JSValue>();
+  let cur: IEnvironmentRecord | null = env;
+  while (cur) {
+    for (const [k, v] of cur.snapshotBindings()) {
+      if (!out.has(k)) out.set(k, v);
+    }
+    cur = cur.outer;
+  }
+  return out;
+}
+
+export function jsValueEqual(a: JSValue, b: JSValue): boolean {
+  if (a.kind !== b.kind) return false;
+  switch (a.kind) {
+    case 'undefined':
+    case 'null':
+      return true;
+    case 'boolean':
+    case 'number':
+    case 'string':
+      return (a as { value: unknown }).value === (b as { value: unknown }).value;
+    case 'ref':
+      return a.id === (b as { id: string }).id;
+  }
+}
+
+export function bindingsEqual(a: Map<string, JSValue>, b: Map<string, JSValue>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [k, v] of a) {
+    const bv = b.get(k);
+    if (!bv) return false;
+    if (!jsValueEqual(v, bv)) return false;
+  }
+  return true;
+}
+
 type Binding = { value: JSValue; kind: BindingKind };
 
 export class EnvironmentRecord implements IEnvironmentRecord {

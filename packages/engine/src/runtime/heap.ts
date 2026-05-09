@@ -1,4 +1,5 @@
 import type { HeapObject, IHeap, JSValue, Reference } from '../types';
+import { bindingsEqual, walkClosureBindings } from './env';
 
 export class Heap implements IHeap {
   private store = new Map<string, HeapObject>();
@@ -58,6 +59,28 @@ export class Heap implements IHeap {
     for (const [id, obj] of this.store) {
       const isDirty = this.dirtyIds.has(id);
       const prevEntry = prev?.get(id);
+
+      // For user-defined functions, the [[Environment]] view must reflect the
+      // live closure bindings at this step, not the values frozen at allocation.
+      // Recompute and treat any change as a reason to bust structural sharing.
+      const freshBindings =
+        obj.kind === 'function' && obj.closure ? walkClosureBindings(obj.closure) : null;
+
+      if (freshBindings) {
+        const prevBindings = prevEntry?.source?.capturedBindings;
+        const bindingsChanged = !prevBindings || !bindingsEqual(freshBindings, prevBindings);
+        if (isDirty || !prevEntry || bindingsChanged) {
+          const copy: HeapObject = { ...obj, ownProps: new Map(obj.ownProps) };
+          if (obj.source) {
+            copy.source = { ...obj.source, capturedBindings: freshBindings };
+          }
+          out.set(id, copy);
+        } else {
+          out.set(id, prevEntry);
+        }
+        continue;
+      }
+
       if (isDirty || !prevEntry) {
         // Allocate a fresh shallow copy with a fresh ownProps Map so future
         // mutations to `this.store` cannot leak into this snapshot.
