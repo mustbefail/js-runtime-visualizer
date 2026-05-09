@@ -125,6 +125,7 @@ export function CanvasPane() {
                     index={i}
                     frame={frame}
                     isTop={i === snap.callStack.length - 1}
+                    isError={snap.eventKind === 'error' && i === snap.callStack.length - 1}
                     pos={pos}
                   />
                 );

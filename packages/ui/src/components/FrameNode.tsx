@@ -27,9 +27,10 @@ export function FrameNode(props: {
   index: number;
   frame: FrameSnapshot;
   isTop: boolean;
+  isError?: boolean;
   pos: Pos;
 }) {
-  const { index, frame, isTop, pos } = props;
+  const { index, frame, isTop, isError, pos } = props;
   const id = frameKey(index);
   const [collapsed] = useAtom(collapsedIdsAtom);
   const [drag] = useAtom(dragStateAtom);
@@ -50,8 +51,8 @@ export function FrameNode(props: {
     });
   };
 
-  const titleColor = isTop ? 'var(--accent)' : 'var(--info)';
-  const borderColor = isTop ? 'var(--accent)' : 'var(--border)';
+  const titleColor = isError ? 'var(--bad)' : isTop ? 'var(--accent)' : 'var(--info)';
+  const borderColor = isError ? 'var(--bad)' : isTop ? 'var(--accent)' : 'var(--border)';
   const headerHeight = 22;
   const lineHeight = 16;
   const padding = 6;
@@ -72,7 +73,7 @@ export function FrameNode(props: {
         rx={6}
         fill="var(--panel)"
         stroke={borderColor}
-        strokeWidth={isTop ? 2 : 1}
+        strokeWidth={isError || isTop ? 2 : 1}
       />
       <rect
         data-testid="frame-header"
