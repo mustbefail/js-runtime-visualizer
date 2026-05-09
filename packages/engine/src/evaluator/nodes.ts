@@ -955,36 +955,61 @@ function* evalTry(
   ctx: Context,
 ): Generator<StepEvent, JSValue> {
   let result: JSValue = { kind: 'undefined' };
+  let pending:
+    | { mode: 'throw'; signal: ThrowSignal }
+    | { mode: 'return'; signal: ReturnSignal }
+    | null = null;
   try {
-    result = yield* evalNode(node.block as A.Node, ctx);
+    try {
+      result = yield* evalNode(node.block as A.Node, ctx);
+    } catch (e) {
+      if (e instanceof ThrowSignal && node.handler) {
+        const top = ctx.stack.top();
+        if (!top) throw new Error('Internal: no active frame for try/catch');
+        const catchEnv = new EnvironmentRecord(top.env);
+        const saved = top.env;
+        top.env = catchEnv;
+        if (node.handler.param && node.handler.param.type === 'Identifier') {
+          catchEnv.define(node.handler.param.name, e.value, 'let');
+        }
+        yield {
+          kind: 'catch',
+          loc: locOf(node.handler),
+          payload: {
+            paramName:
+              node.handler.param && node.handler.param.type === 'Identifier'
+                ? node.handler.param.name
+                : undefined,
+          },
+        };
+        try {
+          result = yield* evalNode(node.handler.body as A.Node, ctx);
+        } finally {
+          top.env = saved;
+        }
+      } else if (e instanceof ThrowSignal) {
+        pending = { mode: 'throw', signal: e };
+      } else if (e instanceof ReturnSignal) {
+        pending = { mode: 'return', signal: e };
+      } else {
+        throw e;
+      }
+    }
   } catch (e) {
-    if (e instanceof ThrowSignal && node.handler) {
-      const top = ctx.stack.top();
-      if (!top) throw new Error('Internal: no active frame for try/catch');
-      const catchEnv = new EnvironmentRecord(top.env);
-      const saved = top.env;
-      top.env = catchEnv;
-      if (node.handler.param && node.handler.param.type === 'Identifier') {
-        catchEnv.define(node.handler.param.name, e.value, 'let');
-      }
-      yield {
-        kind: 'catch',
-        loc: locOf(node.handler),
-        payload: {
-          paramName:
-            node.handler.param && node.handler.param.type === 'Identifier'
-              ? node.handler.param.name
-              : undefined,
-        },
-      };
-      try {
-        result = yield* evalNode(node.handler.body as A.Node, ctx);
-      } finally {
-        top.env = saved;
-      }
+    if (e instanceof ThrowSignal) {
+      pending = { mode: 'throw', signal: e };
+    } else if (e instanceof ReturnSignal) {
+      pending = { mode: 'return', signal: e };
     } else {
       throw e;
     }
+  }
+  if (node.finalizer) {
+    yield* evalNode(node.finalizer as A.Node, ctx);
+  }
+  if (pending) {
+    if (pending.mode === 'throw') throw pending.signal;
+    throw pending.signal;
   }
   return result;
 }
