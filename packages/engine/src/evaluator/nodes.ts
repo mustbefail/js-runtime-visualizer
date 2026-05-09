@@ -80,6 +80,8 @@ export function* evalNode(node: A.Node, ctx: Context): Generator<StepEvent, JSVa
       return yield* evalClass(node as A.Class, ctx);
     case 'Super':
       return evalSuperReceiver(ctx);
+    case 'ThrowStatement':
+      return yield* evalThrow(node as A.ThrowStatement, ctx);
     default:
       throw new Error(`UnsupportedError: AST node ${node.type} not implemented in plan 1`);
   }
@@ -349,6 +351,15 @@ function* evalFor(node: A.ForStatement, ctx: Context): Generator<StepEvent, JSVa
 
 class ReturnSignal {
   constructor(public value: JSValue) {}
+}
+
+export class ThrowSignal extends Error {
+  public readonly value: JSValue;
+  constructor(value: JSValue) {
+    super(stringify(value));
+    this.name = 'ThrowSignal';
+    this.value = value;
+  }
 }
 
 function makeFunctionRef(
@@ -922,6 +933,19 @@ function evalSuperReceiver(ctx: Context): JSValue {
   const homeObj = ctx.heap.get(home.id);
   if (!homeObj) throw new Error('Internal: home object missing');
   return homeObj.prototype ?? { kind: 'undefined' };
+}
+
+function* evalThrow(
+  node: A.ThrowStatement,
+  ctx: Context,
+): Generator<StepEvent, JSValue> {
+  const value = yield* evalNode(node.argument as A.Node, ctx);
+  yield {
+    kind: 'error',
+    loc: locOf(node),
+    payload: { value, message: stringify(value) },
+  };
+  throw new ThrowSignal(value);
 }
 
 function snapshotCapturedBindings(env: IEnvironmentRecord): Map<string, JSValue> {
